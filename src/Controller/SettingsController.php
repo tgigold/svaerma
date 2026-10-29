@@ -33,6 +33,8 @@ final class SettingsController extends Controller
                 'manual' => $settings->get('public_manual', '1') === '1',
             ],
             'geoapifyHint' => $key !== '' ? '…' . substr($key, -4) : null,
+            'overpassExtra' => (string) $settings->get('overpass_extra_urls', ''),
+            'overpassConfigured' => $this->app->configuredOverpassEndpoints(),
             'version' => App::VERSION,
             'applied' => $migrator->applied(),
             'pending' => $migrator->pending(),
@@ -74,6 +76,13 @@ final class SettingsController extends Controller
             $errors[] = 'Der Geoapify-Key sieht ungültig aus.';
         }
 
+        $extra = $this->extraUrls($in->input('overpass_extra_urls'));
+        foreach ($extra as $url) {
+            if (!preg_match('#^https://[a-z0-9.-]+(:\d+)?(/[^\s]*)?$#i', $url)) {
+                $errors[] = "Ungültiger Overpass-Endpunkt: $url (erwartet z. B. https://example.org/api/interpreter)";
+            }
+        }
+
         if ($errors !== []) {
             foreach ($errors as $error) {
                 $this->flash('danger', $error);
@@ -88,6 +97,7 @@ final class SettingsController extends Controller
         $settings->set('public_delay_hours', (string) $delay);
         $settings->set('public_notes', $in->input('public_notes') === '1' ? '1' : '0');
         $settings->set('public_manual', $in->input('public_manual') === '1' ? '1' : '0');
+        $settings->set('overpass_extra_urls', implode("\n", $extra));
         if ($in->input('geoapify_remove') === '1') {
             $settings->set('geoapify_key', '');
         } elseif ($key !== '') {
@@ -96,5 +106,11 @@ final class SettingsController extends Controller
 
         $this->flash('success', 'Einstellungen gespeichert.');
         return $this->redirect('/settings');
+    }
+
+    /** @return list<string> one URL per line, empty lines dropped */
+    private function extraUrls(string $text): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/\R/', $text) ?: [])));
     }
 }
