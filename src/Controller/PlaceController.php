@@ -24,27 +24,17 @@ final class PlaceController extends Controller
         }
         $radius = max(Overpass::MIN_RADIUS, min(Overpass::MAX_RADIUS, (int) ($this->request->query['radius'] ?? $this->app->nearbyRadius())));
         try {
-            $places = $this->app->overpass()->nearby($coords[0], $coords[1], $radius);
-            return Response::json(['source' => 'overpass', 'places' => $this->withVisits($places)]);
+            $result = $this->app->nearbySearch()->find($coords[0], $coords[1], $radius);
         } catch (OsmException $e) {
-            $this->app->log('Overpass: ' . $e->getMessage());
-            $overpassError = $e->getMessage();
-        }
-
-        // Fallback: Photon reverse geocoding (fewer places, but a different service).
-        try {
-            $places = $this->app->placeSearch()->nearby($coords[0], $coords[1], $radius);
-        } catch (OsmException $e) {
-            $this->app->log('Photon reverse: ' . $e->getMessage());
             return Response::json([
-                'error' => 'Weder Overpass noch Photon sind gerade erreichbar. Nutze die Suche oder einen eigenen Ort.',
-                'detail' => $overpassError . ' | Photon: ' . $e->getMessage(),
+                'error' => 'Gerade ist kein Ortsdienst erreichbar. Nutze die Suche oder einen eigenen Ort.',
+                'detail' => $e->getMessage(),
             ], 502);
         }
         return Response::json([
-            'source' => 'photon',
-            'notice' => 'Overpass ist nicht erreichbar, die Liste kommt von Photon und ist evtl. unvollständig.',
-            'places' => $this->withVisits($places),
+            'source' => $result['source'],
+            'notice' => $result['notice'],
+            'places' => $this->withVisits($result['places']),
         ]);
     }
 

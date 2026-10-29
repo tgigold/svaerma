@@ -11,13 +11,16 @@ use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
 use App\Http\Session;
+use App\Model\Visibility;
 use App\Repository\CacheRepository;
 use App\Repository\CheckinRepository;
 use App\Repository\LoginAttemptRepository;
 use App\Repository\SettingsRepository;
 use App\Service\Auth;
 use App\Service\CheckinService;
+use App\Service\Osm\Geoapify;
 use App\Service\Osm\HttpClient;
+use App\Service\Osm\NearbySearch;
 use App\Service\Osm\Overpass;
 use App\Service\Osm\PlaceSearch;
 use App\Service\Osm\Throttle;
@@ -29,8 +32,10 @@ use PDO;
  */
 final class App
 {
-    public const VERSION = '0.3.0';
+    public const NAME = 'svaerma';
+    public const VERSION = '0.4.0';
     public const DEFAULT_RADIUS = 150;
+    public const DEFAULT_PUBLIC_DELAY = 2; // hours
 
     private ?PDO $pdo = null;
     private ?Session $session = null;
@@ -108,11 +113,30 @@ final class App
         return (int) ($this->settings()->get('nearby_radius') ?? self::DEFAULT_RADIUS);
     }
 
+    /** Public mode: history, map and detail pages visible without login. */
+    public function publicEnabled(): bool
+    {
+        return $this->settings()->get('public_enabled') === '1';
+    }
+
+    /** What visitors may see; only meaningful when publicEnabled(). */
+    public function publicVisibility(): Visibility
+    {
+        $settings = $this->settings();
+        $limit = (string) $settings->get('public_limit', '');
+        return new Visibility(
+            limit: $limit === '' ? null : max(1, (int) $limit),
+            delayHours: (int) ($settings->get('public_delay_hours') ?? self::DEFAULT_PUBLIC_DELAY),
+            showNotes: $settings->get('public_notes', '1') === '1',
+            showManual: $settings->get('public_manual', '1') === '1',
+        );
+    }
+
     public function http(?int $timeout = null): HttpClient
     {
         // Fair use: identify the app and give a contact address.
         $ua = sprintf(
-            'CheckinLog/%s (+%s; %s)',
+            self::NAME . '/%s (+%s; %s)',
             self::VERSION,
             (string) $this->config->get('base_url'),
             (string) $this->config->get('contact_email'),
@@ -128,6 +152,34 @@ final class App
             $this->overpassEndpoints(),
             (int) $this->config->get('osm.cache_ttl'),
         );
+    }
+
+    /** Geoapify is used only when an API key is set in the settings. */
+    public function geoapify(): ?Geoapify
+    {
+        $key = trim((string) $this->settings()->get('geoapify_key', ''));
+        if ($key === '') {
+            return null;
+        }
+        return new Geoapify(
+            $this->http(),
+            new CacheRepository($this->pdo()),
+            (string) $this->config->get('osm.geoapify_url'),
+            $key,
+            (int) $this->config->get('osm.cache_ttl'),
+        );
+    }
+
+    public function nearbySearch(): NearbySearch
+    {
+        $overpass = $this->overpass();
+        $providers = ['overpass' => $overpass->nearby(...)];
+        $geoapify = $this->geoapify();
+        if ($geoapify !== null) {
+            $providers['geoapify'] = $geoapify->nearby(...);
+        }
+        $providers['photon'] = $this->placeSearch()->nearby(...);
+        return new NearbySearch($providers, fn (string $msg) => $this->log($msg));
     }
 
     /** @return list<string> */
@@ -200,7 +252,9 @@ final class App
         }
 
         if (!$route->option('public') && !$route->option('setup')) {
-            if (!$this->auth()->check()) {
+            $loggedIn = $this->auth()->check();
+            // Routes marked "guest" are readable without login when public mode is on.
+            if (!$loggedIn && !($route->option('guest') && $this->publicEnabled())) {
                 if ($request->wantsJson()) {
                     return Response::json(['error' => 'Nicht angemeldet.'], 401);
                 }
@@ -210,9 +264,12 @@ final class App
                 return Response::redirect('/login');
             }
             if (!$route->option('ignore_migrations') && $this->migrator()->pending() !== []) {
+                if (!$loggedIn) {
+                    return $this->error($request, 503, null, 'Wartungsarbeiten, bitte später wieder vorbeischauen.');
+                }
                 return $request->wantsJson()
                     ? Response::json(['error' => 'Datenbank-Migration ausstehend.'], 503)
-                    : Response::redirect('/admin');
+                    : Response::redirect('/settings');
             }
         }
 
@@ -220,6 +277,8 @@ final class App
         $this->view()->share('csrf', $session->csrfToken());
         $this->view()->share('currentPath', $request->path);
         $this->view()->share('loggedIn', !$route->option('setup') && $this->auth()->check());
+        $this->view()->share('publicNav', !$route->option('setup') && $this->publicEnabled());
+        $this->view()->share('geoapifyActive', !$route->option('setup') && $this->settings()->get('geoapify_key', '') !== '');
 
         [$class, $method] = $route->handler;
         $controller = new $class($this, $request);
@@ -228,7 +287,7 @@ final class App
 
     public function error(Request $request, int $status, ?string $debug = null, ?string $message = null): Response
     {
-        $titles = [400 => 'Ungültige Anfrage', 403 => 'Kein Zugriff', 404 => 'Nicht gefunden', 405 => 'Methode nicht erlaubt', 500 => 'Interner Fehler'];
+        $titles = [400 => 'Ungültige Anfrage', 403 => 'Kein Zugriff', 404 => 'Nicht gefunden', 405 => 'Methode nicht erlaubt', 500 => 'Interner Fehler', 503 => 'Gleich wieder da'];
         $title = $titles[$status] ?? 'Fehler';
         if ($request->wantsJson()) {
             return Response::json(['error' => $message ?? $title], $status);
@@ -262,7 +321,8 @@ final class App
         $headers = [
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
-            'Referrer-Policy' => 'same-origin',
+            // OSM tile servers require a Referer; send the origin only, never paths.
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
             'Permissions-Policy' => 'geolocation=(self), camera=(), microphone=()',
             'Content-Security-Policy' => $csp,
         ];

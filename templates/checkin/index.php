@@ -3,6 +3,7 @@
 /** @var int $page */
 /** @var int $pages */
 /** @var int $total */
+/** @var bool $showNotes */
 use App\Format;
 
 $title = 'Verlauf';
@@ -15,7 +16,7 @@ $title = 'Verlauf';
 <?php if ($days === []): ?>
     <div class="text-center py-5 text-body-secondary">
         <i class="bi bi-geo display-5"></i>
-        <p class="mt-3">Noch keine Check-ins. <a href="/">Jetzt einchecken</a></p>
+        <p class="mt-3">Noch keine Check-ins.<?php if ($loggedIn): ?> <a href="/">Jetzt einchecken</a><?php endif; ?></p>
     </div>
 <?php endif; ?>
 
@@ -27,11 +28,11 @@ $title = 'Verlauf';
                 <span class="text-body-secondary small checkin-time"><?= e($c->localTime()->format('H:i')) ?></span>
                 <span class="flex-grow-1 min-w-0">
                     <span class="d-block fw-semibold text-truncate"><?= e($c->placeName) ?></span>
-                    <?php if ($c->note !== null): ?>
+                    <?php if ($showNotes && $c->note !== null): ?>
                         <span class="d-block small text-body-secondary text-truncate"><?= e($c->note) ?></span>
                     <?php endif; ?>
                 </span>
-                <?php if ($c->osmType === null): ?>
+                <?php if ($loggedIn && $c->osmType === null): ?>
                     <i class="bi bi-pencil-square text-body-tertiary" title="Eigener Ort"></i>
                 <?php endif; ?>
             </a>

@@ -29,9 +29,11 @@ final class Config
             'osm' => [
                 'overpass_url' => 'https://overpass-api.de/api/interpreter',
                 // Tried in order when the main endpoint fails (see wiki.openstreetmap.org/wiki/Overpass_API).
-                'overpass_fallback_urls' => [],
+                'overpass_fallback_urls' => ['https://overpass.osm.jp/api/interpreter'],
                 'photon_url' => 'https://photon.komoot.io/api/',
                 'photon_reverse_url' => 'https://photon.komoot.io/reverse',
+                // Optional, API key is set in the app settings.
+                'geoapify_url' => 'https://api.geoapify.com/v2/places',
                 'nominatim_url' => 'https://nominatim.openstreetmap.org/search',
                 'search_provider' => 'photon',
                 'tile_url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',

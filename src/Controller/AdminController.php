@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\App;
 use App\Http\Response;
 use App\Repository\CacheRepository;
 use App\Service\Osm\OsmException;
@@ -12,23 +11,14 @@ use App\Service\Osm\Overpass;
 
 final class AdminController extends Controller
 {
-    /** @param array<string, string> $params */
+    /**
+     * Admin and settings live on one page now; keep old links working.
+     *
+     * @param array<string, string> $params
+     */
     public function index(array $params): Response
     {
-        $migrator = $this->app->migrator();
-        $dbFile = (string) $this->app->config->get('db_path');
-        return $this->render('admin/index', [
-            'version' => App::VERSION,
-            'applied' => $migrator->applied(),
-            'pending' => $migrator->pending(),
-            'backups' => array_map(
-                static fn (string $f): array => ['name' => basename($f), 'size' => (int) filesize($f), 'time' => (int) filemtime($f)],
-                $this->app->backup()->list(),
-            ),
-            'dbSize' => is_file($dbFile) ? (int) filesize($dbFile) : 0,
-            'phpVersion' => PHP_VERSION,
-            'sqliteVersion' => (string) $this->app->pdo()->query('SELECT sqlite_version()')->fetchColumn(),
-        ]);
+        return $this->redirect('/settings', 301);
     }
 
     /** @param array<string, string> $params */
@@ -49,7 +39,7 @@ final class AdminController extends Controller
             $this->app->log($e);
             $this->flash('danger', 'Migration fehlgeschlagen, Änderungen wurden zurückgerollt. Details stehen in data/logs/error.log.');
         }
-        return $this->redirect('/admin');
+        return $this->redirect('/settings#system');
     }
 
     /** @param array<string, string> $params */
@@ -57,7 +47,7 @@ final class AdminController extends Controller
     {
         $file = $this->app->backup()->create('manual');
         $this->flash('success', 'Backup erstellt: ' . basename($file));
-        return $this->redirect('/admin');
+        return $this->redirect('/settings#system');
     }
 
     /**
@@ -78,6 +68,10 @@ final class AdminController extends Controller
         $checks['Photon-Umkreissuche (Fallback)'] = function (): void {
             $this->app->placeSearch(cacheTtl: 0)->nearby(52.5163, 13.3777, 100);
         };
+        $geoapify = $this->app->geoapify();
+        if ($geoapify !== null) {
+            $checks['Geoapify'] = static fn () => $geoapify->nearby(52.5163, 13.3777, 100);
+        }
         $provider = (string) $this->app->config->get('osm.search_provider');
         $checks['Suche (' . $provider . ')'] = function () use ($http, $provider): void {
             $body = $provider === 'nominatim'
@@ -97,6 +91,6 @@ final class AdminController extends Controller
                 $this->flash('danger', sprintf('%s: %s (%d ms)', $name, $e->getMessage(), (microtime(true) - $start) * 1000));
             }
         }
-        return $this->redirect('/admin');
+        return $this->redirect('/settings#system');
     }
 }

@@ -13,6 +13,7 @@ use App\Http\Router;
 /*
  * All routes. Options:
  *   public            => true  no login required
+ *   guest             => true  readable without login when public mode is on (settings)
  *   setup             => true  only reachable before setup is complete
  *   api               => true  token auth instead of session/CSRF (see API controllers)
  *   ignore_migrations => true  reachable while migrations are pending
@@ -27,17 +28,17 @@ return static function (Router $r): void {
 
     $r->get('/', [CheckinController::class, 'create']);
     $r->post('/checkin', [CheckinController::class, 'store']);
-    $r->get('/checkins', [CheckinController::class, 'index']);
-    $r->get('/checkin/{id:\d+}{slug:(?:-[^/]*)?}', [CheckinController::class, 'show']);
+    $r->get('/checkins', [CheckinController::class, 'index'], ['guest' => true]);
+    $r->get('/checkin/{id:\d+}{slug:(?:-[^/]*)?}', [CheckinController::class, 'show'], ['guest' => true]);
     $r->get('/checkin/{id:\d+}/edit', [CheckinController::class, 'edit']);
     $r->post('/checkin/{id:\d+}/edit', [CheckinController::class, 'update']);
     $r->post('/checkin/{id:\d+}/delete', [CheckinController::class, 'delete']);
-    $r->get('/map', [CheckinController::class, 'map']);
-    $r->get('/map/data', [CheckinController::class, 'mapData']);
+    $r->get('/map', [CheckinController::class, 'map'], ['guest' => true]);
+    $r->get('/map/data', [CheckinController::class, 'mapData'], ['guest' => true]);
     $r->get('/places/nearby', [PlaceController::class, 'nearby']);
     $r->get('/places/search', [PlaceController::class, 'search']);
 
-    $r->get('/settings', [SettingsController::class, 'index']);
+    $r->get('/settings', [SettingsController::class, 'index'], ['ignore_migrations' => true]);
     $r->post('/settings', [SettingsController::class, 'save']);
 
     $r->get('/admin', [AdminController::class, 'index'], ['ignore_migrations' => true]);

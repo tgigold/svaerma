@@ -1,6 +1,6 @@
-# Check-in
+# svaerma
 
-Ein persönliches Check-in-Log als Swarm-Ersatz: Du checkst bewusst an Orten ein und baust dir so ein privates Archiv der Orte auf, an denen du warst. Es gibt kein Social, kein Hintergrund-Tracking und nur einen Nutzer. Die Ortsdaten kommen ausschließlich aus OpenStreetMap.
+Ein persönliches Check-in-Log als Swarm-Ersatz: Du checkst bewusst an Orten ein und baust dir so ein Archiv der Orte auf, an denen du warst. Es gibt kein Social, kein Hintergrund-Tracking und nur einen Nutzer. Verlauf und Karte lassen sich optional öffentlich zeigen. Die Ortsdaten kommen ausschließlich aus OpenStreetMap.
 
 Live unter `https://checkin.gigold.me`.
 
@@ -91,20 +91,21 @@ Wichtig: In die oberste `.htaccess` gehört **kein** `Require all denied`. Apach
 | `osm.overpass_url` | Overpass-Endpunkt für Orte in der Nähe |
 | `osm.overpass_timeout` | Timeout pro Overpass-Endpunkt in Sekunden (Standard: 12), danach greift der Fallback |
 | `osm.photon_reverse_url` | Photon-Reverse-Endpunkt: Umkreissuche, wenn Overpass ausfällt |
-| `osm.overpass_fallback_urls` | Liste weiterer Overpass-Instanzen, die bei Fehlern der Reihe nach versucht werden (`[]` = keine) |
+| `osm.overpass_fallback_urls` | Liste weiterer Overpass-Instanzen, die bei Fehlern der Reihe nach versucht werden (Standard: `overpass.osm.jp`, `[]` = keine) |
+| `osm.geoapify_url` | Geoapify-Places-Endpunkt (aktiv nur mit API-Key aus den Einstellungen) |
 | `osm.search_provider` | `photon` (Standard) oder `nominatim` für die Namenssuche |
 | `osm.photon_url`, `osm.nominatim_url` | Endpunkte der Namenssuche |
 | `osm.tile_url` | Kachel-Server für die Karte |
 | `osm.cache_ttl` | Lebensdauer des Antwort-Caches in Sekunden (Standard: 1 Tag) |
 | `osm.timeout` | HTTP-Timeout in Sekunden |
 
-Alles, was du im Alltag änderst (z. B. den Suchradius), liegt unter **Einstellungen** in der App, nicht in der Config.
+Alles, was du im Alltag änderst (Suchradius, öffentlicher Modus, Geoapify-Key), liegt unter **Einstellungen** (`/settings`) in der App, nicht in der Config. Dort findest du auch Migrationen, Backups und die OSM-Diagnose.
 
 ## Einchecken und OpenStreetMap
 
 1. Die Startseite fragt den Standort per Browser-Geolocation ab. Das geht nur über HTTPS und nur mit deiner Erlaubnis.
 2. Der Server fragt bei **Overpass** alle benannten Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*). Er filtert sie nach Kategorie und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
-   Ist Overpass nicht erreichbar, übernimmt die **Reverse-Suche von Photon**. Diese Liste ist weniger vollständig, ein Hinweis zeigt das an. Nach einem kompletten Overpass-Ausfall wird Overpass 5 Minuten lang übersprungen.
+   Ist Overpass nicht erreichbar, greift die Fallback-Kette: zuerst **Geoapify** (nur mit API-Key), dann die **Reverse-Suche von Photon**. Ein Hinweis zeigt an, woher die Liste stammt. Nach einem kompletten Overpass-Ausfall wird Overpass 5 Minuten lang übersprungen.
 3. Ist das GPS ungenauer als der Radius, wird bis zur Messgenauigkeit gesucht, maximal 1000 m. **Umkreis erweitern** verdoppelt den Radius.
 4. Fallback ist die **Namenssuche** über Photon (oder Nominatim), mit deinem Standort als Gewichtung.
 5. Mit **Eigener Ort** checkst du mit freiem Namen an deinem aktuellen Standort ein.
@@ -112,9 +113,9 @@ Alles, was du im Alltag änderst (z. B. den Suchradius), liegt unter **Einstellu
 
 Gespeichert werden bei OSM-Orten die Koordinaten des Orts, bei eigenen Orten dein Standort. Die Zeit steht in UTC in der Datenbank, die Zeitzone deines Geräts wird mitgespeichert.
 
-**Wenn die Umkreissuche nicht geht:** In `/admin` auf **OSM-Verbindung testen** klicken. Du siehst dann für jeden Endpunkt „OK“ oder den Fehlergrund, z. B. `HTTP 429` (Rate-Limit), `HTTP 504` (überlastet) oder einen Verbindungsfehler (Hoster blockt ausgehende Verbindungen). Details landen außerdem in `data/logs/error.log`.
+**Wenn die Umkreissuche nicht geht:** In den Einstellungen (`/settings`) unter *OpenStreetMap-Dienste* auf **Verbindung testen** klicken. Du siehst dann für jeden Endpunkt „OK“ oder den Fehlergrund, z. B. `HTTP 429` (Rate-Limit), `HTTP 504` (überlastet) oder einen Verbindungsfehler (Hoster blockt ausgehende Verbindungen). Details landen außerdem in `data/logs/error.log`.
 
-**Fair Use:** Alle Anfragen laufen über den Server, nie direkt aus dem Browser. Sie tragen einen User-Agent mit Kontakt-Mail (`CheckinLog/<version> (+<base_url>; <contact_email>)`) und landen mit TTL in der Tabelle `osm_cache`. Für Overpass teilen sich Anfragen in einem Raster von etwa 11 m einen Cache-Eintrag. Nominatim wird prozessübergreifend auf höchstens 1 Anfrage pro Sekunde gedrosselt (Lock-Datei `data/nominatim.lock`). Die Endpunkte lassen sich in der Config austauschen, z. B. gegen eine eigene Overpass-Instanz.
+**Fair Use:** Alle Anfragen laufen über den Server, nie direkt aus dem Browser. Sie tragen einen User-Agent mit Kontakt-Mail (`svaerma/<version> (+<base_url>; <contact_email>)`) und landen mit TTL in der Tabelle `osm_cache`. Für Overpass teilen sich Anfragen in einem Raster von etwa 11 m einen Cache-Eintrag. Nominatim wird prozessübergreifend auf höchstens 1 Anfrage pro Sekunde gedrosselt (Lock-Datei `data/nominatim.lock`). Die Endpunkte lassen sich in der Config austauschen, z. B. gegen eine eigene Overpass-Instanz.
 
 ## Ansichten und URLs
 
@@ -125,10 +126,19 @@ Gespeichert werden bei OSM-Orten die Koordinaten des Orts, bei eigenen Orten dei
 | `/checkin/123-cafe-xyz` | Detailseite mit Karte und allen Besuchen am selben Ort |
 | `/checkin/123/edit` | Name, Notiz, Zeitpunkt und Zeitzone bearbeiten |
 | `/map` | Karte mit allen Check-ins |
-| `/settings` | Einstellungen (Suchradius) |
-| `/admin` | Migrationen, Backups, OSM-Diagnose |
+| `/settings` | Einstellungen, Migrationen, Backups, OSM-Diagnose (`/admin` leitet hierhin um) |
 
 Maßgeblich ist immer die **ID**, der Slug dahinter ist nur Kosmetik. Fehlt er, ist er veraltet (z. B. nach einer Umbenennung) oder falsch, leitet die App per **301** auf die korrekte URL um. Links bleiben damit dauerhaft gültig.
+
+### Öffentlicher Modus
+
+Unter *Einstellungen → Öffentlich* lassen sich **Verlauf, Karte und Detailseiten** ohne Login freigeben. Standardmäßig ist das aus. Einstellbar sind:
+
+- **Anzahl**: nur die neuesten N Check-ins (leer = alle). Die Grenze gilt für Liste und Karte gemeinsam. Ältere Detailseiten liefern für Gäste 404.
+- **Verzögerung**: Check-ins werden erst nach X Stunden öffentlich (Standard: 2), damit niemand live sieht, wo du gerade bist.
+- **Notizen** und **eigene Orte** (ohne OSM-Bezug, z. B. „Bei Oma“) lassen sich einzeln ausblenden.
+
+Gäste sehen keine Bearbeiten-, Lösch- oder Einchecken-Funktionen. Die Startseite `/` leitet sie zum Login. Technisch sind die betroffenen Routen in `src/routes.php` mit `'guest' => true` markiert. Was Gäste sehen, regelt `App\Model\Visibility` im `CheckinRepository`.
 
 Uhrzeiten werden in der **Ortszeit des Check-ins** angezeigt. Ein Check-in in Tokio um 12:00 bleibt also 12:00, auch wenn du die Liste in Berlin ansiehst.
 
@@ -146,7 +156,7 @@ Hochgeladen werden nur Dateien aus dem Repo, Tests und Dev-Konfiguration bleiben
 **Ablauf eines Updates:**
 
 1. PR mergen. Die Action testet und deployt automatisch.
-2. App öffnen. Gibt es ausstehende Migrationen, leitet dich jede Seite nach `/admin` weiter.
+2. App öffnen. Gibt es ausstehende Migrationen, leitet dich jede Seite zu den Einstellungen weiter.
 3. Auf **Jetzt migrieren** klicken. Vorher wird automatisch ein Backup erstellt.
 
 ## Migrationen
@@ -167,12 +177,12 @@ return static function (PDO $pdo): void {
 - Angewendete Migrationen landen in der Tabelle `schema_migrations`.
 - Jede Migration läuft in einer eigenen Transaktion. Schlägt eine fehl, wird sie zurückgerollt und der Lauf bricht ab, die nachfolgenden bleiben ausstehend.
 - Vor jedem Lauf auf eine bestehende Datenbank legt der Migrator automatisch ein Backup in `data/backups/` an.
-- Ausführen geht im Admin-Bereich (`/admin`) oder per CLI mit `php bin/migrate.php`. Den Stand zeigt `php bin/migrate.php --status`.
+- Ausführen geht in den Einstellungen (`/settings`) oder per CLI mit `php bin/migrate.php`. Den Stand zeigt `php bin/migrate.php --status`.
 - Bereits ausgerollte Migrationen nie ändern, sondern immer eine neue anlegen.
 
 ## Backup
 
-- Automatische Backups entstehen vor jeder Migration, manuelle über **Backup erstellen** in `/admin`.
+- Automatische Backups entstehen vor jeder Migration, manuelle über **Backup erstellen** in den Einstellungen.
 - Die Dateien heißen `data/backups/app-YYYYMMDD-HHMMSS-<anlass>.sqlite`, die letzten 20 bleiben erhalten.
 - Herunterladen per FTP. Jede Backup-Datei ist eine vollständige SQLite-Datenbank (erzeugt mit `VACUUM INTO`).
 - Wiederherstellen: Backup per FTP als `data/app.sqlite` hochladen und die bestehende Datei überschreiben.
@@ -209,7 +219,7 @@ Am Beispiel „Orte als Favorit markieren“:
 6. **Template** in `templates/favorites/…` anlegen und jede Ausgabe über `e()` schicken. Formulare brauchen `<input type="hidden" name="_csrf" value="<?= e($csrf) ?>">`.
 7. **Tests** in `tests/` schreiben und den Eintrag in `CHANGELOG.md` unter „Unreleased“ ergänzen.
 
-Bestehender Code muss dafür nicht angefasst werden, abgesehen von `routes.php` und ggf. `App.php`. Standardmäßig liegt jede Route hinter dem Login und jeder POST braucht ein gültiges CSRF-Token. Optionen pro Route (`public`, `api`, `ignore_migrations`) sind in `src/routes.php` dokumentiert.
+Bestehender Code muss dafür nicht angefasst werden, abgesehen von `routes.php` und ggf. `App.php`. Standardmäßig liegt jede Route hinter dem Login und jeder POST braucht ein gültiges CSRF-Token. Optionen pro Route (`public`, `guest`, `api`, `ignore_migrations`) sind in `src/routes.php` dokumentiert.
 
 ## Sicherheit
 
@@ -219,5 +229,6 @@ Bestehender Code muss dafür nicht angefasst werden, abgesehen von `routes.php` 
 - Jedes Formular ist per CSRF-Token geschützt.
 - Nach 5 Fehlversuchen pro IP bzw. 25 insgesamt ist der Login 15 Minuten gesperrt.
 - HTTPS ist Pflicht (Redirect in `.htaccess` und in der App), dazu kommen HSTS, eine strikte Content Security Policy und `X-Frame-Options: DENY`.
+- `Referrer-Policy: strict-origin-when-cross-origin`: Fremde Server (z. B. OSM-Kacheln, die einen Referer verlangen) sehen nur die Domain, nie den Pfad.
 - In Produktion gibt es keine Fehlerdetails. Fehler landen in `data/logs/error.log`.
 - `config/` und `data/` sind von außen nicht erreichbar, auch im Fallback-Modus.

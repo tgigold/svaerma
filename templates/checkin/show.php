@@ -3,6 +3,8 @@
 /** @var list<App\Model\Checkin> $visits */
 /** @var string $tileUrl */
 /** @var string $csrf */
+/** @var bool $showNotes */
+/** @var bool $loggedIn */
 use App\Format;
 
 $title = $checkin->placeName;
@@ -19,7 +21,7 @@ $others = array_values(array_filter($visits, static fn ($v) => $v->id !== $check
     <?php endif; ?>
 </p>
 
-<?php if ($checkin->note !== null): ?>
+<?php if ($showNotes && $checkin->note !== null): ?>
     <div class="card mb-3"><div class="card-body note"><?= nl2br(e($checkin->note)) ?></div></div>
 <?php endif; ?>
 
@@ -28,34 +30,40 @@ $others = array_values(array_filter($visits, static fn ($v) => $v->id !== $check
      data-name="<?= e($checkin->placeName) ?>" data-tiles="<?= e($tileUrl) ?>"></div>
 
 <div class="d-flex flex-wrap gap-2 mb-4">
-    <a class="btn btn-outline-primary btn-sm" href="/checkin/<?= e($checkin->id) ?>/edit"><i class="bi bi-pencil"></i> Bearbeiten</a>
+    <?php if ($loggedIn): ?>
+        <a class="btn btn-outline-primary btn-sm" href="/checkin/<?= e($checkin->id) ?>/edit"><i class="bi bi-pencil"></i> Bearbeiten</a>
+    <?php endif; ?>
     <?php if ($checkin->osmUrl() !== null): ?>
         <a class="btn btn-outline-secondary btn-sm" href="<?= e($checkin->osmUrl()) ?>" rel="noopener" target="_blank">
             <i class="bi bi-box-arrow-up-right"></i> OpenStreetMap
         </a>
     <?php endif; ?>
-    <form method="post" action="/checkin/<?= e($checkin->id) ?>/delete" class="ms-auto"
-          data-confirm="Check-in „<?= e($checkin->placeName) ?>“ wirklich löschen?">
-        <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
-        <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> Löschen</button>
-    </form>
+    <?php if ($loggedIn): ?>
+        <form method="post" action="/checkin/<?= e($checkin->id) ?>/delete" class="ms-auto"
+              data-confirm="Check-in „<?= e($checkin->placeName) ?>“ wirklich löschen?">
+            <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+            <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> Löschen</button>
+        </form>
+    <?php endif; ?>
 </div>
 
 <?php if ($checkin->osmType !== null): ?>
-    <h2 class="h6">Deine Besuche hier</h2>
+    <h2 class="h6"><?= $loggedIn ? 'Deine Besuche hier' : 'Besuche hier' ?></h2>
     <?php if ($others === []): ?>
         <p class="small text-body-secondary">Dein erster Check-in an diesem Ort.</p>
     <?php else: ?>
         <p class="small text-body-secondary"><?= e(count($visits)) ?>× hier eingecheckt.</p>
         <ul class="list-unstyled small">
             <?php foreach (array_slice($others, 0, 20) as $v): ?>
-                <li><a href="<?= e($v->path()) ?>"><?= e(Format::dateTime($v->localTime())) ?></a><?= $v->note !== null ? ' – ' . e(mb_strimwidth($v->note, 0, 80, '…')) : '' ?></li>
+                <li><a href="<?= e($v->path()) ?>"><?= e(Format::dateTime($v->localTime())) ?></a><?= $showNotes && $v->note !== null ? ' – ' . e(mb_strimwidth($v->note, 0, 80, '…')) : '' ?></li>
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>
 <?php endif; ?>
 
+<?php if ($loggedIn): ?>
 <p class="small text-body-tertiary mt-4 mb-0">
     <?= e(number_format($checkin->lat, 5, ',', '')) ?>, <?= e(number_format($checkin->lon, 5, ',', '')) ?>
     · Quelle: <?= e(['web' => 'Web', 'api' => 'API', 'swarm' => 'Swarm-Import'][$checkin->source] ?? $checkin->source) ?>
 </p>
+<?php endif; ?>

@@ -7,6 +7,22 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-29
+
+### Hinzugefügt
+- **Öffentlicher Modus** (Einstellungen → Öffentlich, standardmäßig aus): Verlauf, Karte und Detailseiten lassen sich ohne Login zeigen. Einstellbar sind die Anzahl der neuesten Check-ins (oder alle, gilt für Liste und Karte), eine Verzögerung in Stunden (Standard: 2) sowie, ob Notizen und eigene Orte öffentlich sind. Gäste sehen keine Bearbeiten- oder Löschen-Buttons. Detailseiten außerhalb des öffentlichen Fensters liefern 404.
+- **Geoapify** als optionaler Fallback für die Umkreissuche, aktiv nur mit API-Key (in den Einstellungen). Die Kette lautet jetzt Overpass → Geoapify → Photon.
+- `overpass.osm.jp` als zusätzlicher Overpass-Endpunkt.
+- Footer mit der von OpenStreetMap verlangten Attribution (© OpenStreetMap-Mitwirkende, ODbL) sowie Credits für Photon und gegebenenfalls Geoapify.
+- Die OSM-Diagnose prüft auch Geoapify, sofern ein Key gesetzt ist.
+
+### Geändert
+- Die App heißt jetzt **svaerma** (Navigation, Seitentitel, User-Agent).
+- Admin und Einstellungen sind eine Seite unter `/settings`. `/admin` leitet per 301 dorthin um, ebenso der Hinweis auf ausstehende Migrationen.
+
+### Behoben
+- Auf dem Desktop zeigten die Karten nur „403 Access blocked“. Grund war `Referrer-Policy: same-origin`: Die OSM-Kachelserver verlangen einen Referer und haben die Anfragen ohne ihn abgelehnt. Jetzt gilt `strict-origin-when-cross-origin`, mitgeschickt wird nur die Domain, kein Pfad.
+
 ## [0.3.0] - 2026-10-29
 
 ### Hinzugefügt
@@ -81,7 +97,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/tgigold/svaerma/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tgigold/svaerma/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/tgigold/svaerma/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/tgigold/svaerma/compare/v0.2.0...v0.2.1
