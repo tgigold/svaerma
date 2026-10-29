@@ -46,8 +46,8 @@ body {
 
 /* Map page: fill the viewport below the navbar. */
 .map-full {
-  height: calc(100vh - 57px);
-  height: calc(100dvh - 57px);
+  height: calc(100vh - 57px - 4.5rem);
+  height: calc(100dvh - 57px - 4.5rem);
   position: relative;
 }
 
@@ -55,4 +55,8 @@ body {
   position: absolute;
   inset: 0;
   z-index: 500;
+}
+
+.site-footer .container {
+  column-gap: 1rem;
 }

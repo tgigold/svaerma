@@ -2,25 +2,28 @@
 /** @var string $content */
 /** @var string $csrf */
 /** @var bool $loggedIn */
-$nav = [
-    '/' => ['bi-geo-alt', 'Einchecken'],
-    '/checkins' => ['bi-list-ul', 'Verlauf'],
-    '/map' => ['bi-map', 'Karte'],
-    '/settings' => ['bi-sliders', 'Einstellungen'],
-    '/admin' => ['bi-gear', 'Admin'],
-];
+/** @var bool $publicNav */
+$nav = $loggedIn
+    ? [
+        '/' => ['bi-geo-alt', 'Einchecken'],
+        '/checkins' => ['bi-list-ul', 'Verlauf'],
+        '/map' => ['bi-map', 'Karte'],
+        '/settings' => ['bi-gear', 'Einstellungen'],
+    ]
+    : (!empty($publicNav) ? ['/checkins' => ['bi-list-ul', 'Verlauf'], '/map' => ['bi-map', 'Karte']] : []);
 $current = $currentPath ?? '/';
+$home = $loggedIn || empty($publicNav) ? '/' : '/checkins';
 ?>
 <!doctype html>
 <html lang="de">
 <head>
 <?= $view->partial('partials/head', get_defined_vars()) ?>
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
 <nav class="navbar navbar-expand-md bg-body-tertiary border-bottom sticky-top">
     <div class="container">
-        <a class="navbar-brand fw-semibold" href="/"><i class="bi bi-pin-map-fill text-primary"></i> Check-in</a>
-        <?php if ($loggedIn): ?>
+        <a class="navbar-brand fw-semibold" href="<?= e($home) ?>"><i class="bi bi-pin-map-fill text-primary"></i> <?= e(App\App::NAME) ?></a>
+        <?php if ($nav !== []): ?>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
                     aria-controls="mainNav" aria-expanded="false" aria-label="Navigation umschalten">
                 <span class="navbar-toggler-icon"></span>
@@ -36,25 +39,30 @@ $current = $currentPath ?? '/';
                         </li>
                     <?php endforeach; ?>
                 </ul>
-                <form method="post" action="/logout" class="d-flex">
-                    <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
-                    <button class="btn btn-outline-secondary btn-sm" type="submit"><i class="bi bi-box-arrow-right"></i> Abmelden</button>
-                </form>
+                <?php if ($loggedIn): ?>
+                    <form method="post" action="/logout" class="d-flex">
+                        <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+                        <button class="btn btn-outline-secondary btn-sm" type="submit"><i class="bi bi-box-arrow-right"></i> Abmelden</button>
+                    </form>
+                <?php else: ?>
+                    <a class="btn btn-outline-secondary btn-sm" href="/login"><i class="bi bi-box-arrow-in-right"></i> Anmelden</a>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
     </div>
 </nav>
 <?php if (!empty($fullBleed)): ?>
-<main class="main-full">
+<main class="main-full flex-grow-1">
     <div class="container"><?= $view->partial('partials/flash', get_defined_vars()) ?></div>
     <?= $content ?>
 </main>
 <?php else: ?>
-<main class="container py-3">
+<main class="container py-3 flex-grow-1">
     <?= $view->partial('partials/flash', get_defined_vars()) ?>
     <?= $content ?>
 </main>
 <?php endif; ?>
+<?= $view->partial('partials/footer', get_defined_vars()) ?>
 <?= $view->partial('partials/scripts', get_defined_vars()) ?>
 </body>
 </html>
