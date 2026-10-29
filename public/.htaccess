@@ -1,5 +1,9 @@
 Options -Indexes -MultiViews
 
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
@@ -26,7 +30,7 @@ Options -Indexes -MultiViews
     <FilesMatch "\.(css|js|png|svg|webp|woff2?)$">
         Header set Cache-Control "public, max-age=604800"
     </FilesMatch>
-    <FilesMatch "^sw\.js$">
+    <FilesMatch "\.(webmanifest|html)$">
         Header set Cache-Control "no-cache"
     </FilesMatch>
 </IfModule>

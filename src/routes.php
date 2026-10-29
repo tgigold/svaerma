@@ -7,6 +7,7 @@ use App\Controller\ApiController;
 use App\Controller\AuthController;
 use App\Controller\CheckinController;
 use App\Controller\PlaceController;
+use App\Controller\PwaController;
 use App\Controller\SettingsController;
 use App\Controller\SetupController;
 use App\Controller\TransferController;
@@ -24,6 +25,8 @@ use App\Http\Router;
 return static function (Router $r): void {
     $r->get('/setup', [SetupController::class, 'form'], ['setup' => true]);
     $r->post('/setup', [SetupController::class, 'submit'], ['setup' => true]);
+
+    $r->get('/sw.js', [PwaController::class, 'serviceWorker'], ['public' => true, 'ignore_migrations' => true]);
 
     $r->get('/login', [AuthController::class, 'form'], ['public' => true]);
     $r->post('/login', [AuthController::class, 'login'], ['public' => true]);

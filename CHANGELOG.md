@@ -7,6 +7,13 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-29
+
+### Hinzugefügt
+- **PWA**: Web-App-Manifest (`display: standalone`, Theme-Farbe, Icons in 180/192/512 px und SVG, maskable), Apple-Meta-Tags und Homescreen-Icon. svaerma lässt sich damit auf iPhone und Android als App installieren.
+- **Minimaler Service Worker** (`/sw.js`, von PHP mit versioniertem Cache-Namen ausgeliefert): cacht nur die statische App-Hülle, zeigt ohne Netz eine Offline-Seite und räumt bei Updates alte Caches auf. Seiten mit persönlichen Daten, die API und Ortsabfragen werden nie gecacht.
+- Tests für Service Worker (öffentlich erreichbar, versioniert), Manifest und Precache-Dateien.
+
 ## [0.6.0] - 2026-10-29
 
 ### Hinzugefügt
@@ -135,7 +142,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/tgigold/svaerma/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/tgigold/svaerma/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/tgigold/svaerma/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/tgigold/svaerma/compare/v0.4.1...v0.5.0

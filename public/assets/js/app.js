@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // PWA: register the service worker (served by PHP at /sw.js, see PwaController).
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () { /* not critical */ });
+  }
+
   // Read-only fields (e.g. a new API token) select their content on focus for easy copying.
   document.querySelectorAll('[data-select-on-focus]').forEach(function (input) {
     input.addEventListener('focus', function () { input.select(); });
