@@ -63,10 +63,7 @@ final class CheckinService
             $errors[] = 'Die Notiz ist zu lang.';
         }
 
-        $timezone = trim((string) ($input['timezone'] ?? ''));
-        if (!in_array($timezone, \DateTimeZone::listIdentifiers(), true)) {
-            $timezone = $this->defaultTimezone;
-        }
+        $timezone = self::normalizeTimezone(trim((string) ($input['timezone'] ?? ''))) ?? $this->defaultTimezone;
 
         $time = $now ?? new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $rawTime = $input['checked_in_at'] ?? null;
@@ -96,6 +93,21 @@ final class CheckinService
             'note' => $note === '' ? null : $note,
             'slug' => Slugger::slugify($name),
         ], 'errors' => []];
+    }
+
+    /**
+     * An IANA zone ("Europe/Berlin") or a fixed UTC offset ("+05:30") – the latter for
+     * imports that only know the offset. Returns null if neither.
+     */
+    public static function normalizeTimezone(string $timezone): ?string
+    {
+        if (in_array($timezone, \DateTimeZone::listIdentifiers(), true)) {
+            return $timezone;
+        }
+        if (preg_match('/^[+-](0\d|1[0-4]):[0-5]\d$/', $timezone)) {
+            return $timezone;
+        }
+        return null;
     }
 
     /**

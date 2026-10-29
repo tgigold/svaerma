@@ -21,6 +21,7 @@ final class Checkin
         public readonly ?string $externalId,
         public readonly string $createdAt,
         public readonly string $updatedAt,
+        public readonly ?string $venueRef = null,
     ) {
     }
 
@@ -42,6 +43,7 @@ final class Checkin
             externalId: $row['external_id'] !== null ? (string) $row['external_id'] : null,
             createdAt: (string) $row['created_at'],
             updatedAt: (string) $row['updated_at'],
+            venueRef: isset($row['venue_ref']) ? (string) $row['venue_ref'] : null,
         );
     }
 

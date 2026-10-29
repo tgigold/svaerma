@@ -74,9 +74,11 @@ final class CheckinController extends Controller
             return $this->redirect($canonical, 301);
         }
 
-        $visits = $checkin->osmType !== null && $checkin->osmId !== null
-            ? $this->app->checkins()->atPlace($checkin->osmType, $checkin->osmId, $visibility)
-            : [$checkin];
+        $visits = match (true) {
+            $checkin->osmType !== null && $checkin->osmId !== null => $this->app->checkins()->atPlace($checkin->osmType, $checkin->osmId, $visibility),
+            $checkin->venueRef !== null => $this->app->checkins()->atVenue($checkin->venueRef, $visibility),
+            default => [$checkin],
+        };
 
         return $this->render('checkin/show', [
             'checkin' => $checkin,
