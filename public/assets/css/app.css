@@ -12,3 +12,15 @@ body {
   font-family: var(--bs-font-monospace);
   letter-spacing: 0.05em;
 }
+
+.input-narrow {
+  max-width: 12rem;
+}
+
+.place-item {
+  color: var(--bs-body-color);
+}
+
+.place-item .place-distance {
+  white-space: nowrap;
+}

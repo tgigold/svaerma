@@ -1,0 +1,6 @@
+[
+  {"place_id": 1, "osm_type": "way", "osm_id": 518071791, "lat": "52.5162699", "lon": "13.3777034", "category": "tourism", "type": "attraction",
+   "name": "Brandenburger Tor", "display_name": "Brandenburger Tor, Pariser Platz, Mitte, Berlin, 10117, Deutschland"},
+  {"place_id": 2, "osm_type": "node", "osm_id": 42, "lat": "52.5", "lon": "13.4", "category": "place", "type": "square",
+   "name": "", "display_name": "Pariser Platz, Mitte, Berlin, Deutschland"}
+]

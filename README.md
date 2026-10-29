@@ -10,6 +10,7 @@ Live unter `https://checkin.gigold.me`.
 - [Verzeichnisstruktur](#verzeichnisstruktur)
 - [Installation](#installation)
 - [Konfiguration](#konfiguration)
+- [Einchecken und OpenStreetMap](#einchecken-und-openstreetmap)
 - [Deployment und Updates](#deployment-und-updates)
 - [Migrationen](#migrationen)
 - [Backup](#backup)
@@ -86,7 +87,27 @@ Wichtig: In die oberste `.htaccess` gehört **kein** `Require all denied`. Apach
 | `base_url` | Öffentliche Adresse ohne `/` am Ende |
 | `contact_email` | Kontakt im User-Agent für Overpass, Photon und Nominatim |
 | `timezone` | Standard-Zeitzone für die Anzeige |
-| `osm.*` | Endpunkte für Overpass, Photon, Nominatim und Kacheln, Cache-TTL, Timeout |
+| `osm.overpass_url` | Overpass-Endpunkt für Orte in der Nähe |
+| `osm.search_provider` | `photon` (Standard) oder `nominatim` für die Namenssuche |
+| `osm.photon_url`, `osm.nominatim_url` | Endpunkte der Namenssuche |
+| `osm.tile_url` | Kachel-Server für die Karte |
+| `osm.cache_ttl` | Lebensdauer des Antwort-Caches in Sekunden (Standard: 1 Tag) |
+| `osm.timeout` | HTTP-Timeout in Sekunden |
+
+Alles, was du im Alltag änderst (z. B. den Suchradius), liegt unter **Einstellungen** in der App, nicht in der Config.
+
+## Einchecken und OpenStreetMap
+
+1. Die Startseite fragt den Standort per Browser-Geolocation ab. Das geht nur über HTTPS und nur mit deiner Erlaubnis.
+2. Der Server fragt bei **Overpass** benannte Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*) und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
+3. Ist das GPS ungenauer als der Radius, wird bis zur Messgenauigkeit gesucht, maximal 1000 m. **Umkreis erweitern** verdoppelt den Radius.
+4. Fallback ist die **Namenssuche** über Photon (oder Nominatim), mit deinem Standort als Gewichtung.
+5. Mit **Eigener Ort** checkst du mit freiem Namen an deinem aktuellen Standort ein.
+6. Hast du an einem OSM-Ort schon eingecheckt, zeigt die Liste „zuletzt am …“ und die Anzahl der Besuche. Dafür werden `osm_type` und `osm_id` gespeichert.
+
+Gespeichert werden bei OSM-Orten die Koordinaten des Orts, bei eigenen Orten dein Standort. Die Zeit steht in UTC in der Datenbank, die Zeitzone deines Geräts wird mitgespeichert.
+
+**Fair Use:** Alle Anfragen laufen über den Server, nie direkt aus dem Browser. Sie tragen einen User-Agent mit Kontakt-Mail (`CheckinLog/<version> (+<base_url>; <contact_email>)`) und landen mit TTL in der Tabelle `osm_cache`. Für Overpass teilen sich Anfragen in einem Raster von etwa 11 m einen Cache-Eintrag. Nominatim wird prozessübergreifend auf höchstens 1 Anfrage pro Sekunde gedrosselt (Lock-Datei `data/nominatim.lock`). Die Endpunkte lassen sich in der Config austauschen, z. B. gegen eine eigene Overpass-Instanz.
 
 ## Deployment und Updates
 
@@ -143,7 +164,7 @@ composer install
 APP_ENV=dev php -S 127.0.0.1:8080 -t public public/index.php
 ```
 
-Dann `http://127.0.0.1:8080/setup` aufrufen und danach in `config/config.php` `'env' => 'dev'` setzen, sonst leitet die App auf HTTPS um.
+Dann `http://127.0.0.1:8080/setup` aufrufen und danach in `config/config.php` `'env' => 'dev'` setzen, sonst leitet die App auf HTTPS um. Die Geolocation erlauben Browser auf `127.0.0.1` auch ohne HTTPS.
 
 ```bash
 vendor/bin/phpunit

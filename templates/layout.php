@@ -4,6 +4,7 @@
 /** @var bool $loggedIn */
 $nav = [
     '/' => ['bi-geo-alt', 'Einchecken'],
+    '/settings' => ['bi-sliders', 'Einstellungen'],
     '/admin' => ['bi-gear', 'Admin'],
 ];
 $current = $currentPath ?? '/';
