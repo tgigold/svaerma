@@ -21,7 +21,7 @@ return [
     // OpenStreetMap endpoints – swap for your own instances if you like.
     'osm' => [
         'overpass_url' => 'https://overpass-api.de/api/interpreter',
-        'overpass_fallback_urls' => ['https://overpass.private.coffee/api/interpreter'], // [] = no fallback
+        'overpass_fallback_urls' => [], // e.g. ['https://overpass.private.coffee/api/interpreter']
         'photon_url' => 'https://photon.komoot.io/api/',
         'photon_reverse_url' => 'https://photon.komoot.io/reverse', // nearby fallback when Overpass fails
         'nominatim_url' => 'https://nominatim.openstreetmap.org/search',

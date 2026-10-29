@@ -111,4 +111,25 @@ final class CheckinService
         $id = $this->checkins->create($result['data'] + ['source' => $source, 'external_id' => $externalId]);
         return $this->checkins->find($id) ?? throw new \RuntimeException('Check-in vanished after insert.');
     }
+
+    /**
+     * Updates name, note, time and timezone. Location and OSM reference stay unless given.
+     *
+     * @param array<string, mixed> $input
+     * @return Checkin|list<string> the updated check-in or validation errors
+     */
+    public function update(Checkin $checkin, array $input): Checkin|array
+    {
+        $result = $this->validate($input + [
+            'lat' => $checkin->lat,
+            'lon' => $checkin->lon,
+            'osm_type' => $checkin->osmType,
+            'osm_id' => $checkin->osmId,
+        ]);
+        if ($result['data'] === null) {
+            return $result['errors'];
+        }
+        $this->checkins->update($checkin->id, $result['data']);
+        return $this->checkins->find($checkin->id) ?? throw new \RuntimeException('Check-in vanished after update.');
+    }
 }

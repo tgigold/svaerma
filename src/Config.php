@@ -29,7 +29,7 @@ final class Config
             'osm' => [
                 'overpass_url' => 'https://overpass-api.de/api/interpreter',
                 // Tried in order when the main endpoint fails (see wiki.openstreetmap.org/wiki/Overpass_API).
-                'overpass_fallback_urls' => ['https://overpass.private.coffee/api/interpreter'],
+                'overpass_fallback_urls' => [],
                 'photon_url' => 'https://photon.komoot.io/api/',
                 'photon_reverse_url' => 'https://photon.komoot.io/reverse',
                 'nominatim_url' => 'https://nominatim.openstreetmap.org/search',

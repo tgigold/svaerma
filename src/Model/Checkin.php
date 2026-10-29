@@ -57,7 +57,25 @@ final class Checkin
 
     public function path(): string
     {
-        return '/checkin/' . $this->id . ($this->slug !== '' ? '-' . $this->slug : '');
+        return self::pathFor($this->id, $this->slug);
+    }
+
+    /** Canonical URL path, e.g. "/checkin/123-cafe-xyz". */
+    public static function pathFor(int $id, string $slug): string
+    {
+        return '/checkin/' . $id . ($slug !== '' ? '-' . $slug : '');
+    }
+
+    /**
+     * Where to redirect when a URL was requested with a stale or missing slug.
+     * The ID is authoritative; the slug part is cosmetic.
+     *
+     * @param string $requestedSlug the slug part of the URL including its leading "-", or ""
+     */
+    public function canonicalRedirect(string $requestedSlug): ?string
+    {
+        $expected = $this->slug !== '' ? '-' . $this->slug : '';
+        return $requestedSlug === $expected ? null : $this->path();
     }
 
     public function osmUrl(): ?string

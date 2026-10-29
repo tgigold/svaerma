@@ -82,4 +82,61 @@ final class CheckinRepository
         }
         return $result;
     }
+
+    /** @return list<Checkin> newest first */
+    public function page(int $limit, int $offset): array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM checkins ORDER BY checked_in_at DESC, id DESC LIMIT ? OFFSET ?');
+        $stmt->execute([$limit, $offset]);
+        return array_map(Checkin::fromRow(...), $stmt->fetchAll());
+    }
+
+    public function count(): int
+    {
+        return (int) $this->pdo->query('SELECT COUNT(*) FROM checkins')->fetchColumn();
+    }
+
+    /**
+     * Compact rows for the map.
+     *
+     * @return list<array{id: int, lat: float, lon: float, place_name: string, slug: string, checked_in_at: string}>
+     */
+    public function allForMap(): array
+    {
+        $rows = $this->pdo->query('SELECT id, lat, lon, place_name, slug, checked_in_at FROM checkins ORDER BY checked_in_at')->fetchAll();
+        return array_map(static fn (array $r): array => [
+            'id' => (int) $r['id'],
+            'lat' => (float) $r['lat'],
+            'lon' => (float) $r['lon'],
+            'place_name' => (string) $r['place_name'],
+            'slug' => (string) $r['slug'],
+            'checked_in_at' => (string) $r['checked_in_at'],
+        ], $rows);
+    }
+
+    /** @return list<Checkin> All check-ins at the same OSM object, newest first */
+    public function atPlace(string $osmType, int $osmId): array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM checkins WHERE osm_type = ? AND osm_id = ? ORDER BY checked_in_at DESC');
+        $stmt->execute([$osmType, $osmId]);
+        return array_map(Checkin::fromRow(...), $stmt->fetchAll());
+    }
+
+    /**
+     * @param array{place_name: string, checked_in_at: string, timezone: string, note: ?string, slug: string,
+     *              lat?: float, lon?: float, osm_type?: ?string, osm_id?: ?int} $data
+     */
+    public function update(int $id, array $data): void
+    {
+        $allowed = ['lat', 'lon', 'place_name', 'osm_type', 'osm_id', 'checked_in_at', 'timezone', 'note', 'slug'];
+        $data = array_intersect_key($data, array_flip($allowed));
+        $sets = array_map(static fn (string $col): string => "$col = :$col", array_keys($data));
+        $stmt = $this->pdo->prepare('UPDATE checkins SET ' . implode(', ', $sets) . ', updated_at = :updated_at WHERE id = :id');
+        $stmt->execute($data + ['updated_at' => gmdate('Y-m-d H:i:s'), 'id' => $id]);
+    }
+
+    public function delete(int $id): void
+    {
+        $this->pdo->prepare('DELETE FROM checkins WHERE id = ?')->execute([$id]);
+    }
 }

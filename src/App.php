@@ -29,7 +29,7 @@ use PDO;
  */
 final class App
 {
-    public const VERSION = '0.2.2';
+    public const VERSION = '0.3.0';
     public const DEFAULT_RADIUS = 150;
 
     private ?PDO $pdo = null;

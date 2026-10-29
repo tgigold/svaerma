@@ -70,4 +70,3 @@ $title = 'Einchecken';
     </div>
 </div>
 
-<script src="/assets/js/checkin.js"></script>

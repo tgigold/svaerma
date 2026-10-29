@@ -4,6 +4,8 @@
 /** @var bool $loggedIn */
 $nav = [
     '/' => ['bi-geo-alt', 'Einchecken'],
+    '/checkins' => ['bi-list-ul', 'Verlauf'],
+    '/map' => ['bi-map', 'Karte'],
     '/settings' => ['bi-sliders', 'Einstellungen'],
     '/admin' => ['bi-gear', 'Admin'],
 ];
@@ -42,11 +44,17 @@ $current = $currentPath ?? '/';
         <?php endif; ?>
     </div>
 </nav>
+<?php if (!empty($fullBleed)): ?>
+<main class="main-full">
+    <div class="container"><?= $view->partial('partials/flash', get_defined_vars()) ?></div>
+    <?= $content ?>
+</main>
+<?php else: ?>
 <main class="container py-3">
     <?= $view->partial('partials/flash', get_defined_vars()) ?>
     <?= $content ?>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+<?php endif; ?>
+<?= $view->partial('partials/scripts', get_defined_vars()) ?>
 </body>
 </html>

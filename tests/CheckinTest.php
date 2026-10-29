@@ -83,4 +83,70 @@ final class CheckinTest extends TestCase
         self::assertArrayNotHasKey('node/99', $visits);
         self::assertSame([], $repo->visitsFor([]));
     }
+
+    public function testPaginationCountAndOrder(): void
+    {
+        $service = $this->service($repo);
+        foreach (['2024-01-03', '2024-01-01', '2024-01-02'] as $i => $day) {
+            $service->create(['lat' => 1, 'lon' => 1, 'place_name' => "P$i", 'checked_in_at' => $day . 'T12:00:00Z'], 'web');
+        }
+        self::assertSame(3, $repo->count());
+        self::assertSame(['P0', 'P2'], array_map(fn (Checkin $c) => $c->placeName, $repo->page(2, 0)), 'Newest first');
+        self::assertSame(['P1'], array_map(fn (Checkin $c) => $c->placeName, $repo->page(2, 2)));
+        self::assertSame(['P1', 'P2', 'P0'], array_column($repo->allForMap(), 'place_name'), 'Map data is chronological');
+    }
+
+    public function testUpdateKeepsLocationAndRegeneratesSlug(): void
+    {
+        $service = $this->service($repo);
+        $checkin = $service->create(['lat' => 52.5, 'lon' => 13.4, 'place_name' => 'Alt', 'osm_type' => 'node', 'osm_id' => 7], 'web');
+        self::assertInstanceOf(Checkin::class, $checkin);
+
+        $updated = $service->update($checkin, [
+            'place_name' => 'Neuer Name', 'note' => 'Hallo', 'checked_in_at' => '2024-05-01T08:30', 'timezone' => 'Europe/Berlin',
+        ]);
+        self::assertInstanceOf(Checkin::class, $updated);
+        self::assertSame('neuer-name', $updated->slug);
+        self::assertSame('Hallo', $updated->note);
+        self::assertSame(52.5, $updated->lat);
+        self::assertSame(7, $updated->osmId);
+        self::assertSame('2024-05-01 06:30:00', $updated->checkedInAt->format('Y-m-d H:i:s'), 'Local time converted to UTC');
+
+        self::assertIsArray($service->update($updated, ['place_name' => '', 'checked_in_at' => 'kaputt']));
+    }
+
+    public function testDeleteAndAtPlace(): void
+    {
+        $service = $this->service($repo);
+        $a = $service->create(['lat' => 1, 'lon' => 1, 'place_name' => 'A', 'osm_type' => 'way', 'osm_id' => 3, 'checked_in_at' => '2024-01-01Z'], 'web');
+        $b = $service->create(['lat' => 1, 'lon' => 1, 'place_name' => 'A', 'osm_type' => 'way', 'osm_id' => 3, 'checked_in_at' => '2024-02-01Z'], 'web');
+        self::assertInstanceOf(Checkin::class, $a);
+        self::assertInstanceOf(Checkin::class, $b);
+
+        self::assertSame([$b->id, $a->id], array_map(fn (Checkin $c) => $c->id, $repo->atPlace('way', 3)));
+        $repo->delete($a->id);
+        self::assertNull($repo->find($a->id));
+        self::assertCount(1, $repo->atPlace('way', 3));
+    }
+
+    public function testCanonicalRedirectForWrongOrMissingSlug(): void
+    {
+        $checkin = $this->service()->create(['lat' => 1, 'lon' => 1, 'place_name' => 'Café XYZ'], 'web');
+        self::assertInstanceOf(Checkin::class, $checkin);
+        $canonical = '/checkin/' . $checkin->id . '-cafe-xyz';
+
+        self::assertNull($checkin->canonicalRedirect('-cafe-xyz'));
+        self::assertSame($canonical, $checkin->canonicalRedirect(''));
+        self::assertSame($canonical, $checkin->canonicalRedirect('-alter-name'));
+        self::assertSame($canonical, $checkin->canonicalRedirect('-CAFE-XYZ'));
+    }
+
+    public function testCheckinWithoutSlugHasPlainPath(): void
+    {
+        $checkin = $this->service()->create(['lat' => 1, 'lon' => 1, 'place_name' => '!!!'], 'web');
+        self::assertInstanceOf(Checkin::class, $checkin);
+        self::assertSame('/checkin/' . $checkin->id, $checkin->path());
+        self::assertNull($checkin->canonicalRedirect(''));
+        self::assertSame($checkin->path(), $checkin->canonicalRedirect('-x'));
+    }
 }
