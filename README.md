@@ -11,6 +11,7 @@ Live unter `https://checkin.gigold.me`.
 - [Installation](#installation)
 - [Konfiguration](#konfiguration)
 - [Einchecken und OpenStreetMap](#einchecken-und-openstreetmap)
+- [Ansichten und URLs](#ansichten-und-urls)
 - [Deployment und Updates](#deployment-und-updates)
 - [Migrationen](#migrationen)
 - [Backup](#backup)
@@ -114,6 +115,22 @@ Gespeichert werden bei OSM-Orten die Koordinaten des Orts, bei eigenen Orten dei
 **Wenn die Umkreissuche nicht geht:** In `/admin` auf **OSM-Verbindung testen** klicken. Du siehst dann für jeden Endpunkt „OK“ oder den Fehlergrund, z. B. `HTTP 429` (Rate-Limit), `HTTP 504` (überlastet) oder einen Verbindungsfehler (Hoster blockt ausgehende Verbindungen). Details landen außerdem in `data/logs/error.log`.
 
 **Fair Use:** Alle Anfragen laufen über den Server, nie direkt aus dem Browser. Sie tragen einen User-Agent mit Kontakt-Mail (`CheckinLog/<version> (+<base_url>; <contact_email>)`) und landen mit TTL in der Tabelle `osm_cache`. Für Overpass teilen sich Anfragen in einem Raster von etwa 11 m einen Cache-Eintrag. Nominatim wird prozessübergreifend auf höchstens 1 Anfrage pro Sekunde gedrosselt (Lock-Datei `data/nominatim.lock`). Die Endpunkte lassen sich in der Config austauschen, z. B. gegen eine eigene Overpass-Instanz.
+
+## Ansichten und URLs
+
+| URL | Inhalt |
+|---|---|
+| `/` | Einchecken |
+| `/checkins` | Verlauf, nach Tagen gruppiert, 50 pro Seite (`?page=2`) |
+| `/checkin/123-cafe-xyz` | Detailseite mit Karte und allen Besuchen am selben Ort |
+| `/checkin/123/edit` | Name, Notiz, Zeitpunkt und Zeitzone bearbeiten |
+| `/map` | Karte mit allen Check-ins |
+| `/settings` | Einstellungen (Suchradius) |
+| `/admin` | Migrationen, Backups, OSM-Diagnose |
+
+Maßgeblich ist immer die **ID**, der Slug dahinter ist nur Kosmetik. Fehlt er, ist er veraltet (z. B. nach einer Umbenennung) oder falsch, leitet die App per **301** auf die korrekte URL um. Links bleiben damit dauerhaft gültig.
+
+Uhrzeiten werden in der **Ortszeit des Check-ins** angezeigt. Ein Check-in in Tokio um 12:00 bleibt also 12:00, auch wenn du die Liste in Berlin ansiehst.
 
 ## Deployment und Updates
 

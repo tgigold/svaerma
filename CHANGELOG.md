@@ -7,6 +7,22 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
+### Hinzugefügt
+- **Verlauf** (`/checkins`): chronologische Liste, nach Tagen gruppiert (Ortszeit des Check-ins), 50 pro Seite.
+- **Detailseite** (`/checkin/123-cafe-xyz`) mit Karte, Notiz, Link zu OpenStreetMap und allen Besuchen am selben Ort.
+- **Saubere URLs**: Maßgeblich ist die ID. Ein falscher oder fehlender Slug leitet per 301 auf die korrekte URL um, auch nach einer Umbenennung.
+- **Bearbeiten** von Name, Notiz, Zeitpunkt (Ortszeit) und Zeitzone. Ort und OSM-Verknüpfung bleiben erhalten.
+- **Löschen** mit Rückfrage.
+- **Karte** (`/map`) mit allen Check-ins (Leaflet per CDN mit SRI, Canvas-Renderer für große Datenmengen).
+- Nach dem Einchecken landest du direkt auf der Detailseite.
+- Tests für Pagination, Update, Löschen, Slug-Redirects, Check-in-Routen und deutsche Datumsformate.
+
+### Geändert
+- Asset-URLs tragen jetzt die App-Version (`?v=0.3.0`), damit Browser nach einem Update nicht mehr alte JS- und CSS-Dateien aus dem Cache verwenden.
+- `overpass.private.coffee` ist kein Standard-Fallback mehr: Vom Hoster aus war es nicht erreichbar, und jeder Versuch kostete 12 s. Über `osm.overpass_fallback_urls` lässt es sich weiter eintragen.
+
 ## [0.2.2] - 2026-10-29
 
 ### Behoben
@@ -65,7 +81,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tgigold/svaerma/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/tgigold/svaerma/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/tgigold/svaerma/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tgigold/svaerma/compare/v0.1.0...v0.2.0
