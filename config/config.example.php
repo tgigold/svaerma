@@ -21,7 +21,7 @@ return [
     // OpenStreetMap endpoints – swap for your own instances if you like.
     'osm' => [
         'overpass_url' => 'https://overpass-api.de/api/interpreter',
-        'overpass_fallback_urls' => ['https://overpass.osm.jp/api/interpreter'], // [] = none
+        'overpass_fallback_urls' => [], // more can also be added in the app settings
         'photon_url' => 'https://photon.komoot.io/api/',
         'photon_reverse_url' => 'https://photon.komoot.io/reverse', // nearby fallback when Overpass fails
         'geoapify_url' => 'https://api.geoapify.com/v2/places',     // used only with an API key (settings)
