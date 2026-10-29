@@ -1,0 +1,18 @@
+# Local configuration (contains secrets) – created by setup on the server
+/config/config.php
+
+# Runtime data: database, backups, sessions, logs, uploads
+/data/*
+!/data/.htaccess
+
+# Swarm/Foursquare exports must never be committed
+checkins*.json
+*swarm*export*
+*foursquare*
+
+# Dev tooling
+/vendor/
+/.phpunit.cache/
+/.phpunit.result.cache
+/composer.lock
+.DS_Store

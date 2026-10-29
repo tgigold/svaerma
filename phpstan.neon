@@ -1,0 +1,9 @@
+parameters:
+    level: 6
+    paths:
+        - src
+        - public/index.php
+        - bin
+        - migrations
+    bootstrapFiles:
+        - src/bootstrap.php
