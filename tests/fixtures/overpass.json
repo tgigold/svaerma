@@ -1,0 +1,13 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62",
+  "elements": [
+    {"type": "node", "id": 1001, "lat": 52.52010, "lon": 13.40510, "tags": {"name": "Café Müller", "amenity": "cafe", "addr:street": "Rosenthaler Straße", "addr:housenumber": "12"}},
+    {"type": "way", "id": 2002, "center": {"lat": 52.52100, "lon": 13.40600}, "tags": {"name": "Buchhandlung Lesezeichen", "shop": "books"}},
+    {"type": "node", "id": 1003, "lat": 52.52000, "lon": 13.40500, "tags": {"name": "Späti Eck", "shop": "kiosk"}},
+    {"type": "node", "id": 1004, "lat": 52.52300, "lon": 13.40900, "tags": {"name": "Teeladen", "shop": "tea"}},
+    {"type": "node", "id": 1005, "lat": 52.52000, "lon": 13.40500, "tags": {"amenity": "bench"}},
+    {"type": "way", "id": 2006, "tags": {"name": "Way without center", "leisure": "park"}},
+    {"type": "node", "id": 1001, "lat": 52.52010, "lon": 13.40510, "tags": {"name": "Café Müller", "amenity": "cafe"}}
+  ]
+}

@@ -1,0 +1,7 @@
+{"type": "FeatureCollection", "features": [
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.3777, 52.5163]},
+   "properties": {"osm_type": "W", "osm_id": 518071791, "osm_key": "tourism", "osm_value": "attraction", "name": "Brandenburger Tor", "street": "Pariser Platz", "city": "Berlin", "country": "Deutschland"}},
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.3801, 52.5170]},
+   "properties": {"osm_type": "N", "osm_id": 123456, "osm_key": "amenity", "osm_value": "cafe", "name": "Café am Tor", "housenumber": "1", "street": "Pariser Platz", "city": "Berlin"}},
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.0, 52.0]}, "properties": {"osm_type": "N", "osm_id": 1}}
+]}

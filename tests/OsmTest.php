@@ -1,0 +1,125 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests;
+
+use App\Repository\CacheRepository;
+use App\Service\Osm\Geo;
+use App\Service\Osm\OsmException;
+use App\Service\Osm\Overpass;
+use App\Service\Osm\PlaceSearch;
+use App\Service\Osm\Throttle;
+
+final class OsmTest extends TestCase
+{
+    private function fixture(string $name): string
+    {
+        return (string) file_get_contents(__DIR__ . "/fixtures/$name.json");
+    }
+
+    public function testOverpassParsesSortsAndDeduplicates(): void
+    {
+        $http = new FakeHttpClient($this->fixture('overpass'));
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), 'https://overpass.test/api', 60);
+
+        $places = $overpass->nearby(52.52, 13.405, 150);
+
+        self::assertSame(['Späti Eck', 'Café Müller', 'Buchhandlung Lesezeichen', 'Teeladen'], array_map(fn ($p) => $p->name, $places));
+        self::assertSame('Kiosk', $places[0]->category);
+        self::assertSame(0, (int) round((float) $places[0]->distance));
+        self::assertSame('Rosenthaler Straße 12', $places[1]->address);
+        self::assertSame('way', $places[2]->osmType);
+        self::assertSame(2002, $places[2]->osmId);
+        self::assertSame('Tea', $places[3]->category, 'Unknown values fall back to the raw tag');
+    }
+
+    public function testOverpassUsesCacheForNearbyRequests(): void
+    {
+        $http = new FakeHttpClient($this->fixture('overpass'));
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), 'https://overpass.test/api', 60);
+
+        $overpass->nearby(52.52001, 13.40501, 150);
+        $overpass->nearby(52.52002, 13.40502, 150); // same ~11 m grid cell
+        self::assertCount(1, $http->requests);
+
+        $overpass->nearby(52.53, 13.40501, 150);
+        self::assertCount(2, $http->requests);
+    }
+
+    public function testOverpassClampsRadiusAndBuildsQuery(): void
+    {
+        $http = new FakeHttpClient('{"elements": []}');
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), 'https://overpass.test/api', 60);
+        $overpass->nearby(52.5, 13.4, 999999);
+
+        $query = (string) $http->requests[0]['data']['data'];
+        self::assertStringContainsString('around:1000,52.500000,13.400000', $query);
+        self::assertStringContainsString('["name"]["amenity"]["amenity"!~"^(bench|', $query);
+        self::assertStringContainsString('out tags center qt;', $query);
+    }
+
+    public function testOverpassRejectsInvalidResponse(): void
+    {
+        $overpass = new Overpass(new FakeHttpClient('<html>error</html>'), new CacheRepository($this->migratedPdo()), 'x', 60);
+        $this->expectException(OsmException::class);
+        $overpass->nearby(52.5, 13.4, 100);
+    }
+
+    public function testPhotonParsing(): void
+    {
+        $http = new FakeHttpClient($this->fixture('photon'));
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'photon', 'https://photon.test/api', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.0), 60);
+
+        $places = $search->search('Brandenburger', 52.5163, 13.3777);
+
+        self::assertCount(2, $places, 'Features without name are skipped');
+        self::assertSame('Brandenburger Tor', $places[0]->name);
+        self::assertSame('way', $places[0]->osmType);
+        self::assertSame(518071791, $places[0]->osmId);
+        self::assertSame('Sehenswürdigkeit', $places[0]->category);
+        self::assertSame('Pariser Platz, Berlin', $places[0]->address);
+        self::assertSame('Pariser Platz 1, Berlin', $places[1]->address);
+        self::assertNotNull($places[1]->distance);
+        self::assertSame('Brandenburger', $http->requests[0]['data']['q']);
+        self::assertSame(52.5163, $http->requests[0]['data']['lat']);
+    }
+
+    public function testNominatimParsingAndThrottle(): void
+    {
+        $http = new FakeHttpClient($this->fixture('nominatim'));
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'nominatim', 'https://photon.test/api', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.3), 60);
+
+        $start = microtime(true);
+        $places = $search->search('Brandenburger Tor');
+        $search->search('Pariser Platz');
+        self::assertGreaterThanOrEqual(0.29, microtime(true) - $start, 'Second request waits for the throttle');
+
+        self::assertSame('Brandenburger Tor', $places[0]->name);
+        self::assertSame('Pariser Platz', $places[1]->name, 'Falls back to first part of display_name');
+        self::assertSame('jsonv2', $http->requests[0]['data']['format']);
+    }
+
+    public function testShortQueriesDoNotHitTheNetwork(): void
+    {
+        $http = new FakeHttpClient('[]');
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'photon', 'p', 'n', new Throttle($this->tempDir() . '/t', 0.0), 60);
+        self::assertSame([], $search->search(' a '));
+        self::assertSame([], $http->requests);
+    }
+
+    public function testDistance(): void
+    {
+        // Brandenburger Tor → Fernsehturm ≈ 2.2 km
+        self::assertEqualsWithDelta(2205, Geo::distance(52.5163, 13.3777, 52.5208, 13.4094), 30);
+        self::assertSame(0.0, Geo::distance(1.0, 1.0, 1.0, 1.0));
+    }
+
+    public function testCacheExpires(): void
+    {
+        $cache = new CacheRepository($this->migratedPdo());
+        $cache->set('k', 'v', 10, 1000);
+        self::assertSame('v', $cache->get('k', 1005));
+        self::assertNull($cache->get('k', 1010));
+    }
+}
