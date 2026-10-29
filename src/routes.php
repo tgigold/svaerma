@@ -36,4 +36,5 @@ return static function (Router $r): void {
     $r->get('/admin', [AdminController::class, 'index'], ['ignore_migrations' => true]);
     $r->post('/admin/migrate', [AdminController::class, 'migrate'], ['ignore_migrations' => true]);
     $r->post('/admin/backup', [AdminController::class, 'backup'], ['ignore_migrations' => true]);
+    $r->post('/admin/osm-test', [AdminController::class, 'osmTest']);
 };
