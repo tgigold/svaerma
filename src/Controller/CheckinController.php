@@ -9,11 +9,14 @@ use App\Model\Checkin;
 
 final class CheckinController extends Controller
 {
+    public const PER_PAGE = 50;
+
     /** @param array<string, string> $params */
     public function create(array $params): Response
     {
         return $this->render('checkin/create', [
             'radius' => $this->app->nearbyRadius(),
+            'scripts' => ['checkin.js'],
         ]);
     }
 
@@ -28,6 +31,146 @@ final class CheckinController extends Controller
             return $this->redirect('/');
         }
         $this->flash('success', 'Eingecheckt: ' . $result->placeName);
-        return $this->redirect('/');
+        return $this->redirect($result->path());
+    }
+
+    /** @param array<string, string> $params */
+    public function index(array $params): Response
+    {
+        $repo = $this->app->checkins();
+        $total = $repo->count();
+        $pages = max(1, (int) ceil($total / self::PER_PAGE));
+        $page = max(1, (int) ($this->request->query['page'] ?? 1));
+        if ($page > $pages) {
+            return $this->redirect('/checkins?page=' . $pages);
+        }
+
+        // Group by the local calendar day of each check-in.
+        $days = [];
+        foreach ($repo->page(self::PER_PAGE, ($page - 1) * self::PER_PAGE) as $checkin) {
+            $days[$checkin->localTime()->format('Y-m-d')][] = $checkin;
+        }
+
+        return $this->render('checkin/index', [
+            'days' => $days,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+        ]);
+    }
+
+    /** @param array<string, string> $params */
+    public function show(array $params): Response
+    {
+        $checkin = $this->app->checkins()->find((int) $params['id']);
+        if ($checkin === null) {
+            return $this->notFound();
+        }
+        $canonical = $checkin->canonicalRedirect($params['slug'] ?? '');
+        if ($canonical !== null) {
+            return $this->redirect($canonical, 301);
+        }
+
+        $visits = $checkin->osmType !== null && $checkin->osmId !== null
+            ? $this->app->checkins()->atPlace($checkin->osmType, $checkin->osmId)
+            : [$checkin];
+
+        return $this->render('checkin/show', [
+            'checkin' => $checkin,
+            'visits' => $visits,
+            'leaflet' => true,
+            'scripts' => ['map.js'],
+            'tileUrl' => (string) $this->app->config->get('osm.tile_url'),
+        ]);
+    }
+
+    /** @param array<string, string> $params */
+    public function edit(array $params): Response
+    {
+        $checkin = $this->app->checkins()->find((int) $params['id']);
+        if ($checkin === null) {
+            return $this->notFound();
+        }
+        return $this->render('checkin/edit', [
+            'checkin' => $checkin,
+            'input' => [
+                'place_name' => $checkin->placeName,
+                'note' => (string) $checkin->note,
+                'checked_in_at' => $checkin->localTime()->format('Y-m-d\TH:i'),
+                'timezone' => $checkin->timezone,
+            ],
+            'errors' => [],
+            'timezones' => \DateTimeZone::listIdentifiers(),
+        ]);
+    }
+
+    /** @param array<string, string> $params */
+    public function update(array $params): Response
+    {
+        $checkin = $this->app->checkins()->find((int) $params['id']);
+        if ($checkin === null) {
+            return $this->notFound();
+        }
+        $input = [
+            'place_name' => $this->request->input('place_name'),
+            'note' => $this->request->input('note'),
+            'checked_in_at' => $this->request->input('checked_in_at'),
+            'timezone' => $this->request->input('timezone'),
+        ];
+        $result = $this->app->checkinService()->update($checkin, $input);
+        if (!$result instanceof Checkin) {
+            return $this->render('checkin/edit', [
+                'checkin' => $checkin,
+                'input' => $input,
+                'errors' => $result,
+                'timezones' => \DateTimeZone::listIdentifiers(),
+            ], 422);
+        }
+        $this->flash('success', 'Gespeichert.');
+        return $this->redirect($result->path());
+    }
+
+    /** @param array<string, string> $params */
+    public function delete(array $params): Response
+    {
+        $checkin = $this->app->checkins()->find((int) $params['id']);
+        if ($checkin === null) {
+            return $this->notFound();
+        }
+        $this->app->checkins()->delete($checkin->id);
+        $this->flash('success', 'Check-in „' . $checkin->placeName . '“ gelöscht.');
+        return $this->redirect('/checkins');
+    }
+
+    /** @param array<string, string> $params */
+    public function map(array $params): Response
+    {
+        return $this->render('checkin/map', [
+            'leaflet' => true,
+            'scripts' => ['map.js'],
+            'fullBleed' => true,
+            'tileUrl' => (string) $this->app->config->get('osm.tile_url'),
+        ]);
+    }
+
+    /**
+     * All check-ins as compact rows for the map: [id, lat, lon, name, path, date].
+     *
+     * @param array<string, string> $params
+     */
+    public function mapData(array $params): Response
+    {
+        $rows = [];
+        foreach ($this->app->checkins()->allForMap() as $r) {
+            $rows[] = [
+                $r['id'],
+                $r['lat'],
+                $r['lon'],
+                $r['place_name'],
+                Checkin::pathFor($r['id'], $r['slug']),
+                substr($r['checked_in_at'], 0, 10),
+            ];
+        }
+        return Response::json($rows, 200, false)->withHeader('Cache-Control', 'private, no-cache');
     }
 }

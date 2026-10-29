@@ -24,3 +24,35 @@ body {
 .place-item .place-distance {
   white-space: nowrap;
 }
+
+.checkin-time {
+  min-width: 2.75rem;
+  padding-top: 0.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.note {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.map-small {
+  height: 220px;
+}
+
+/* Map page: fill the viewport below the navbar. */
+.map-full {
+  height: calc(100vh - 57px);
+  height: calc(100dvh - 57px);
+  position: relative;
+}
+
+.map-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+}

@@ -38,6 +38,20 @@ final class RouterTest extends TestCase
         self::assertSame('', $m['params']['slug']);
     }
 
+    public function testRealRoutesResolveCheckinUrls(): void
+    {
+        $r = new Router();
+        (require APP_ROOT . '/src/routes.php')($r);
+
+        self::assertSame('show', $r->match('GET', '/checkin/42-cafe-xyz')['route']->handler[1] ?? null);
+        self::assertSame('show', $r->match('GET', '/checkin/42')['route']->handler[1] ?? null);
+        self::assertSame('edit', $r->match('GET', '/checkin/42/edit')['route']->handler[1] ?? null);
+        self::assertSame('update', $r->match('POST', '/checkin/42/edit')['route']->handler[1] ?? null);
+        self::assertSame('delete', $r->match('POST', '/checkin/42/delete')['route']->handler[1] ?? null);
+        self::assertNull($r->match('GET', '/checkin/42/delete'), 'Delete only via POST');
+        self::assertSame(['POST'], $r->allowedMethods('/checkin/42/delete'));
+    }
+
     public function testRejectsNonNumericId(): void
     {
         self::assertNull($this->router()->match('GET', '/checkin/abc'));

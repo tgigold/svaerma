@@ -27,6 +27,13 @@ return static function (Router $r): void {
 
     $r->get('/', [CheckinController::class, 'create']);
     $r->post('/checkin', [CheckinController::class, 'store']);
+    $r->get('/checkins', [CheckinController::class, 'index']);
+    $r->get('/checkin/{id:\d+}{slug:(?:-[^/]*)?}', [CheckinController::class, 'show']);
+    $r->get('/checkin/{id:\d+}/edit', [CheckinController::class, 'edit']);
+    $r->post('/checkin/{id:\d+}/edit', [CheckinController::class, 'update']);
+    $r->post('/checkin/{id:\d+}/delete', [CheckinController::class, 'delete']);
+    $r->get('/map', [CheckinController::class, 'map']);
+    $r->get('/map/data', [CheckinController::class, 'mapData']);
     $r->get('/places/nearby', [PlaceController::class, 'nearby']);
     $r->get('/places/search', [PlaceController::class, 'search']);
 
