@@ -41,7 +41,8 @@ final class OsmTest extends TestCase
         self::assertSame('Rosenthaler Straße 12', $places[1]->address);
         self::assertSame('way', $places[2]->osmType);
         self::assertSame(2002, $places[2]->osmId);
-        self::assertSame('Tea', $places[3]->category, 'Unknown values fall back to the raw tag');
+        self::assertSame('Tee', $places[3]->category);
+        self::assertSame('Fishing', Categories::label(['shop' => 'fishing']), 'Unknown values fall back to the raw tag');
     }
 
     public function testOverpassUsesCacheForNearbyRequests(): void

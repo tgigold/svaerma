@@ -19,6 +19,8 @@ use App\Repository\LoginAttemptRepository;
 use App\Repository\SettingsRepository;
 use App\Service\Auth;
 use App\Service\CheckinService;
+use App\Service\Exporter;
+use App\Service\SwarmImporter;
 use App\Service\Osm\Geoapify;
 use App\Service\Osm\HttpClient;
 use App\Service\Osm\NearbySearch;
@@ -34,7 +36,7 @@ use PDO;
 final class App
 {
     public const NAME = 'svaerma';
-    public const VERSION = '0.5.1';
+    public const VERSION = '0.6.0';
     public const DEFAULT_RADIUS = 150;
     public const DEFAULT_PUBLIC_DELAY = 2; // hours
 
@@ -122,6 +124,16 @@ final class App
     public function checkinService(): CheckinService
     {
         return new CheckinService($this->checkins(), (string) $this->config->get('timezone'));
+    }
+
+    public function swarmImporter(): SwarmImporter
+    {
+        return new SwarmImporter($this->checkins(), $this->checkinService(), (string) $this->config->get('timezone'));
+    }
+
+    public function exporter(): Exporter
+    {
+        return new Exporter($this->checkins(), rtrim((string) $this->config->get('base_url'), '/'));
     }
 
     /** Search radius for nearby places in metres (user setting). */

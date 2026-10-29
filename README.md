@@ -13,6 +13,7 @@ Live unter `https://checkin.gigold.me`.
 - [Einchecken und OpenStreetMap](#einchecken-und-openstreetmap)
 - [Ansichten und URLs](#ansichten-und-urls)
 - [API](#api)
+- [Swarm-Import und Export](#swarm-import-und-export)
 - [Deployment und Updates](#deployment-und-updates)
 - [Migrationen](#migrationen)
 - [Backup](#backup)
@@ -44,7 +45,7 @@ templates/     PHP-Templates (Ausgabe immer über e())
 config/        config.example.php; die echte config.php wird beim Setup erzeugt (gitignored)
 data/          SQLite-DB, Backups, Sessions, Logs (gitignored, per .htaccess gesperrt)
 migrations/    nummerierte Migrationen 001_….php
-bin/           CLI-Skripte (setup, migrate) für die lokale Nutzung
+bin/           CLI-Skripte (setup, migrate, import-swarm) für die lokale Nutzung
 tests/         PHPUnit
 ```
 
@@ -220,6 +221,48 @@ In der Kurzbefehle-App einen neuen Kurzbefehl anlegen und diese Aktionen in dies
 10. **Wörterbuchwert abrufen**: *Wert* für `place_name` in *Inhalte von URL*, danach **Mitteilung anzeigen**: „Eingecheckt: …“
 
 Tipp: Über *Zum Home-Bildschirm* oder die Aktionstaste bist du mit einem Tipp dabei. Liefert Schritt 3 einen Fehler, steht der Grund im Feld `error` (z. B. `401` = Token falsch oder widerrufen).
+
+## Swarm-Import und Export
+
+### Swarm-Import
+
+1. Bei Foursquare den Datenexport anfordern und das ZIP entpacken. Gebraucht werden nur die Dateien `checkins1.json`, `checkins2.json` …
+2. *Einstellungen → Import & Export → Swarm-Import*: alle `checkins*.json` auf einmal auswählen. **Probelauf** ist vorausgewählt.
+3. Der Bericht zeigt, wie viele Einträge importiert würden, schon vorhanden sind oder übersprungen werden, und für jeden übersprungenen den Grund (z. B. „Keine Koordinaten“, „Kein Check-in (Typ „shout“)“).
+4. Passt alles, die Dateien noch einmal auswählen und den Probelauf abwählen.
+
+Der Import lässt sich beliebig wiederholen. Doppelte Einträge erkennt er an der Swarm-Check-in-ID (`external_id`), auch über mehrere Dateien und mehrere Läufe hinweg. Die hochgeladenen Dateien werden nur gelesen, nie gespeichert. `.gitignore` schließt `checkins*.json` und alles mit `foursquare` oder `swarm…export` im Namen aus, damit ein Export nie versehentlich im Repo landet. Das Upload-Limit des Servers (`upload_max_filesize`) steht neben dem Feld.
+
+**Was übernommen wird:**
+
+| Swarm | svaerma |
+|---|---|
+| `id` | `external_id` (Deduplizierung), `source = swarm` |
+| `venue.name` | Ortsname |
+| `venue.id` | `venue_ref = foursquare:<id>`. Damit funktionieren „Deine Besuche hier“ auch für importierte Orte |
+| `lat`, `lng` | Koordinaten. Achtung: Das ist die Handyposition beim Einchecken, nicht die des Orts, und teils nur auf mehrere hundert Meter genau |
+| `createdAt` (UTC) | Zeitpunkt |
+| `timeZoneOffset` (Minuten) | Zeitzone: Entspricht der Offset zu diesem Zeitpunkt der Standard-Zeitzone (z. B. Europe/Berlin, Sommer wie Winter), wird diese gespeichert, sonst ein fester Offset wie `+05:30` |
+| `shout` | Notiz |
+
+Nicht übernommen werden `canonicalUrl` (enthält einen persönlichen Share-Token), Kommentare und Fotos. Importierte Orte haben keine OSM-Referenz.
+
+**Per CLI** (lokal oder mit SSH):
+
+```bash
+php bin/import-swarm.php --dry-run checkins1.json checkins2.json
+```
+
+```bash
+php bin/import-swarm.php checkins*.json
+```
+
+### Export
+
+Unter *Einstellungen → Import & Export* (nur eingeloggt):
+
+- `/export.json`: alle Check-ins mit allen Feldern, älteste zuerst
+- `/export.geojson`: GeoJSON-FeatureCollection (RFC 7946, Koordinaten als `[lon, lat]`), direkt nutzbar in QGIS, uMap, geojson.io usw.
 
 ## Deployment und Updates
 

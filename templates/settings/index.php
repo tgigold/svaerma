@@ -18,6 +18,8 @@
 /** @var list<array{id: int, name: string, created_at: string, last_used_at: ?string, revoked_at: ?string}>|null $tokens */
 /** @var string|null $newToken */
 /** @var string $baseUrl */
+/** @var string $uploadLimit */
+/** @var bool $importReady */
 $title = 'Einstellungen';
 $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.') . ' KB';
 ?>
@@ -174,6 +176,46 @@ $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.'
     </div>
 </div>
 <?php endif; ?>
+
+<h2 class="h5 mb-3" id="import">Import &amp; Export</h2>
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-body">
+                <h3 class="h6 card-title">Swarm-Import</h3>
+                <?php if (!$importReady): ?>
+                    <p class="small mb-0">Bitte zuerst die ausstehende Migration ausführen.</p>
+                <?php else: ?>
+                    <p class="small text-body-secondary">
+                        Die <code>checkins*.json</code> aus dem Foursquare-Datenexport auswählen (mehrere möglich, max. <?= e($uploadLimit) ?> je Datei).
+                        Bereits importierte Check-ins werden erkannt und übersprungen. Die Dateien werden nicht gespeichert.
+                    </p>
+                    <form method="post" action="/import/swarm" enctype="multipart/form-data">
+                        <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+                        <input class="form-control mb-2" type="file" name="files[]" accept=".json,application/json" multiple required aria-label="Swarm-Exportdateien">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run" value="1" checked>
+                            <label class="form-check-label" for="dry_run">Probelauf – nur prüfen, nichts speichern</label>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-upload"></i> Importieren</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h3 class="h6 card-title">Export</h3>
+                <p class="small text-body-secondary">Alle Check-ins mit allen Feldern.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-primary btn-sm" href="/export.json"><i class="bi bi-filetype-json"></i> JSON</a>
+                    <a class="btn btn-outline-primary btn-sm" href="/export.geojson"><i class="bi bi-globe"></i> GeoJSON</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <h2 class="h5 mb-3" id="system">System</h2>
 <div class="row g-3">

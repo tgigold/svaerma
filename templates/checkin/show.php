@@ -47,7 +47,7 @@ $others = array_values(array_filter($visits, static fn ($v) => $v->id !== $check
     <?php endif; ?>
 </div>
 
-<?php if ($checkin->osmType !== null): ?>
+<?php if ($checkin->osmType !== null || $checkin->venueRef !== null): ?>
     <h2 class="h6"><?= $loggedIn ? 'Deine Besuche hier' : 'Besuche hier' ?></h2>
     <?php if ($others === []): ?>
         <p class="small text-body-secondary">Dein erster Check-in an diesem Ort.</p>

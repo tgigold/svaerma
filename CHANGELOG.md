@@ -7,6 +7,16 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-29
+
+### Hinzugefügt
+- **Swarm-Import** für die `checkins*.json` aus dem Foursquare-Datenexport: Upload mehrerer Dateien in den Einstellungen, Probelauf mit Bericht (importiert, schon vorhanden, übersprungen mit Grund), Deduplizierung über die Swarm-ID. Die Dateien werden nicht gespeichert. CLI-Pendant: `bin/import-swarm.php [--dry-run]`.
+- Migration `004_venue_ref`: Die Foursquare-Venue-ID wird mitgespeichert, damit „Deine Besuche hier“ auch für importierte Orte ohne OSM-Bezug funktioniert.
+- Zeitzonen mit festem Offset (z. B. `+05:30`) für Importe, die nur den UTC-Offset kennen. Passt der Offset zur Standard-Zeitzone, wird diese verwendet.
+- **Export** aller Check-ins als JSON (`/export.json`) und GeoJSON (`/export.geojson`).
+- Deutlich mehr deutsche Kategorienamen in der Ortsliste (z. B. Haltestelle, Herrenhaus, Fensterbau, Kulturzentrum, Ämter, Handwerk, Sport).
+- Tests für Importer (Probelauf, Idempotenz, Feldzuordnung, Zeitzonen, Venue-Gruppierung, Share-Token, ungültige Dateien, Listen-Variante, Unix-Zeitstempel) und Export.
+
 ## [0.5.1] - 2026-10-29
 
 ### Hinzugefügt
@@ -125,7 +135,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/tgigold/svaerma/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/tgigold/svaerma/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/tgigold/svaerma/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/tgigold/svaerma/compare/v0.4.0...v0.4.1

@@ -17,16 +17,16 @@ final class CheckinRepository
     /**
      * @param array{lat: float, lon: float, place_name: string, osm_type: ?string, osm_id: ?int,
      *              checked_in_at: string, timezone: string, note: ?string, slug: string,
-     *              source: string, external_id?: ?string} $data
+     *              source: string, external_id?: ?string, venue_ref?: ?string} $data
      */
     public function create(array $data): int
     {
         $now = gmdate('Y-m-d H:i:s');
         $stmt = $this->pdo->prepare(
             'INSERT INTO checkins (lat, lon, place_name, osm_type, osm_id, checked_in_at, timezone, note, slug,
-                                   source, external_id, created_at, updated_at)
+                                   source, external_id, venue_ref, created_at, updated_at)
              VALUES (:lat, :lon, :place_name, :osm_type, :osm_id, :checked_in_at, :timezone, :note, :slug,
-                     :source, :external_id, :created_at, :updated_at)'
+                     :source, :external_id, :venue_ref, :created_at, :updated_at)'
         );
         $stmt->execute([
             'lat' => $data['lat'],
@@ -40,6 +40,7 @@ final class CheckinRepository
             'slug' => $data['slug'],
             'source' => $data['source'],
             'external_id' => $data['external_id'] ?? null,
+            'venue_ref' => $data['venue_ref'] ?? null,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -144,6 +145,57 @@ final class CheckinRepository
         return $visibility === null
             ? $checkins
             : array_values(array_filter($checkins, fn (Checkin $c): bool => $this->isVisible($c, $visibility)));
+    }
+
+    /** @return list<Checkin> All (visible) check-ins at the same external venue, newest first */
+    public function atVenue(string $venueRef, ?Visibility $visibility = null): array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM checkins WHERE venue_ref = ? ORDER BY checked_in_at DESC, id DESC');
+        $stmt->execute([$venueRef]);
+        $checkins = array_map(Checkin::fromRow(...), $stmt->fetchAll());
+        return $visibility === null
+            ? $checkins
+            : array_values(array_filter($checkins, fn (Checkin $c): bool => $this->isVisible($c, $visibility)));
+    }
+
+    /**
+     * Which of the given external IDs already exist for a source (import deduplication).
+     *
+     * @param list<string> $externalIds
+     * @return array<string, true>
+     */
+    public function existingExternalIds(string $source, array $externalIds): array
+    {
+        $found = [];
+        foreach (array_chunk($externalIds, 500) as $chunk) {
+            $marks = implode(',', array_fill(0, count($chunk), '?'));
+            $stmt = $this->pdo->prepare("SELECT external_id FROM checkins WHERE source = ? AND external_id IN ($marks)");
+            $stmt->execute([$source, ...$chunk]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                $found[(string) $id] = true;
+            }
+        }
+        return $found;
+    }
+
+    /**
+     * Runs $work in one transaction (much faster for bulk inserts in SQLite).
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    public function transaction(callable $work): mixed
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $result = $work();
+            $this->pdo->commit();
+            return $result;
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
     }
 
     /** Whether a visitor may see this check-in (delay, manual places, newest-N window). */
