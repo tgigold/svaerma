@@ -16,13 +16,16 @@ class HttpClient
     ) {
     }
 
-    /** @param array<string, string|int|float> $query */
-    public function get(string $url, array $query = []): string
+    /**
+     * @param array<string, string|int|float> $query
+     * @param array<string, string> $headers extra request headers, e.g. an API key
+     */
+    public function get(string $url, array $query = [], array $headers = []): string
     {
         if ($query !== []) {
             $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($query);
         }
-        return $this->request('GET', $url);
+        return $this->request('GET', $url, null, $headers);
     }
 
     /** @param array<string, string> $form */
@@ -31,10 +34,14 @@ class HttpClient
         return $this->request('POST', $url, http_build_query($form));
     }
 
-    private function request(string $method, string $url, ?string $body = null): string
+    /** @param array<string, string> $extraHeaders */
+    private function request(string $method, string $url, ?string $body = null, array $extraHeaders = []): string
     {
         // No "Expect: 100-continue" – some outbound proxies stall on it.
         $headers = ['Accept: application/json', 'Expect:'];
+        foreach ($extraHeaders as $name => $value) {
+            $headers[] = "$name: $value";
+        }
         if ($body !== null) {
             $headers[] = 'Content-Type: application/x-www-form-urlencoded';
         }

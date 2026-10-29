@@ -30,6 +30,8 @@ final class Config
                 'overpass_url' => 'https://overpass-api.de/api/interpreter',
                 // Tried in order when the main endpoint fails (see wiki.openstreetmap.org/wiki/Overpass_API).
                 'overpass_fallback_urls' => [],
+                // Used first when an overpass.ch API key is set in the settings (key goes in a header).
+                'overpass_ch_url' => 'https://api.overpass.ch/v1/interpreter',
                 'photon_url' => 'https://photon.komoot.io/api/',
                 'photon_reverse_url' => 'https://photon.komoot.io/reverse',
                 // Optional, API key is set in the app settings.

@@ -17,6 +17,12 @@ use App\Service\Osm\Throttle;
 
 final class OsmTest extends TestCase
 {
+    /** @return list<array{url: string, label: string}> */
+    private static function endpoints(string ...$urls): array
+    {
+        return array_map(static fn (string $u): array => ['url' => $u, 'label' => (string) parse_url($u, PHP_URL_HOST)], $urls);
+    }
+
     private function fixture(string $name): string
     {
         return (string) file_get_contents(__DIR__ . "/fixtures/$name.json");
@@ -25,7 +31,7 @@ final class OsmTest extends TestCase
     public function testOverpassParsesSortsAndDeduplicates(): void
     {
         $http = new FakeHttpClient($this->fixture('overpass'));
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://overpass.test/api'), 60);
 
         $places = $overpass->nearby(52.52, 13.405, 150);
 
@@ -41,7 +47,7 @@ final class OsmTest extends TestCase
     public function testOverpassUsesCacheForNearbyRequests(): void
     {
         $http = new FakeHttpClient($this->fixture('overpass'));
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://overpass.test/api'), 60);
 
         $overpass->nearby(52.52001, 13.40501, 150);
         $overpass->nearby(52.52002, 13.40502, 150); // same ~11 m grid cell
@@ -54,7 +60,7 @@ final class OsmTest extends TestCase
     public function testOverpassClampsRadiusAndBuildsQuery(): void
     {
         $http = new FakeHttpClient('{"elements": []}');
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://overpass.test/api'), 60);
         $overpass->nearby(52.5, 13.4, 999999);
 
         $query = (string) $http->requests[0]['data']['data'];
@@ -70,7 +76,7 @@ final class OsmTest extends TestCase
             }
             return $this->fixture('overpass');
         });
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://primary.test/api', 'https://backup.test/api'], 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://primary.test/api', 'https://backup.test/api'), 60);
 
         self::assertCount(4, $overpass->nearby(52.52, 13.405, 150));
         self::assertSame(['https://primary.test/api', 'https://backup.test/api'], array_column($http->requests, 'url'));
@@ -79,7 +85,7 @@ final class OsmTest extends TestCase
     public function testErrorNamesEveryFailedEndpoint(): void
     {
         $http = new FakeHttpClient(static fn (string $url): string => throw new OsmException('HTTP 429'));
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://a.test/api', 'https://b.test/api'], 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://a.test/api', 'https://b.test/api'), 60);
 
         $this->expectExceptionMessage('a.test: HTTP 429 | b.test: HTTP 429');
         $overpass->nearby(52.52, 13.405, 150);
@@ -95,7 +101,7 @@ final class OsmTest extends TestCase
                 : $this->fixture('overpass');
         });
         $cache = new CacheRepository($this->migratedPdo());
-        $overpass = new Overpass($http, $cache, ['https://overpass.test/api'], 60);
+        $overpass = new Overpass($http, $cache, self::endpoints('https://overpass.test/api'), 60);
 
         try {
             $overpass->nearby(52.52, 13.405, 150);
@@ -119,7 +125,7 @@ final class OsmTest extends TestCase
 
     public function testOverpassRejectsInvalidResponse(): void
     {
-        $overpass = new Overpass(new FakeHttpClient('<html>error</html>'), new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
+        $overpass = new Overpass(new FakeHttpClient('<html>error</html>'), new CacheRepository($this->migratedPdo()), self::endpoints('https://overpass.test/api'), 60);
         $this->expectException(OsmException::class);
         $overpass->nearby(52.5, 13.4, 100);
     }
@@ -169,14 +175,29 @@ final class OsmTest extends TestCase
     public function testOverpassUsesGet(): void
     {
         $http = new FakeHttpClient('{"elements": []}');
-        (new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60))->nearby(52.5, 13.4, 100);
+        (new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://overpass.test/api'), 60))->nearby(52.5, 13.4, 100);
         self::assertSame('GET', $http->requests[0]['method']);
+    }
+
+    public function testEndpointHeadersAreSentAndLabelsHideSecrets(): void
+    {
+        $http = new FakeHttpClient(static fn (): string => throw new OsmException('HTTP 503'));
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), [
+            ['url' => 'https://api.overpass.test/v1/interpreter', 'label' => 'overpass.ch', 'headers' => ['X-API-Key' => 'SECRET']],
+        ], 60);
+        try {
+            $overpass->fetch('x');
+            self::fail('Expected exception');
+        } catch (OsmException $e) {
+            self::assertSame('overpass.ch: HTTP 503', $e->getMessage());
+        }
+        self::assertSame(['X-API-Key' => 'SECRET'], $http->headers[0]);
     }
 
     public function testCooldownSkipsOverpassAfterFailure(): void
     {
         $http = new FakeHttpClient(static fn (): string => throw new OsmException('HTTP 502'));
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://a.test/api', 'https://b.test/api'], 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), self::endpoints('https://a.test/api', 'https://b.test/api'), 60);
 
         try {
             $overpass->nearby(52.52, 13.405, 150);

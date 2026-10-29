@@ -22,7 +22,10 @@ final class Overpass
     public const COOLDOWN = 300;
     public const COOLDOWN_KEY = 'overpass:cooldown';
 
-    /** @param list<string> $endpoints */
+    /**
+     * @param list<array{url: string, label: string, headers?: array<string, string>}> $endpoints
+     *        label is used in error messages, so it must not contain secrets
+     */
     public function __construct(
         private HttpClient $http,
         private CacheRepository $cache,
@@ -69,13 +72,12 @@ final class Overpass
         $errors = [];
         foreach ($this->endpoints as $endpoint) {
             try {
-                // GET instead of POST: the query is short, and some hosts' outbound
-                // proxies mishandle POST requests (observed: instant 502 / no response).
-                $json = $this->http->get($endpoint, ['data' => $query]);
+                // GET: the query is short and GET passes every proxy we met.
+                $json = $this->http->get($endpoint['url'], ['data' => $query], $endpoint['headers'] ?? []);
                 self::validate($json);
                 return $json;
             } catch (OsmException $e) {
-                $errors[] = (parse_url($endpoint, PHP_URL_HOST) ?: $endpoint) . ': ' . $e->getMessage();
+                $errors[] = $endpoint['label'] . ': ' . $e->getMessage();
             }
         }
         throw new OsmException(implode(' | ', $errors) ?: 'Kein Overpass-Endpunkt konfiguriert.');

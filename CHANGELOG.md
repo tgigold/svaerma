@@ -7,6 +7,12 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-29
+
+### Hinzugefügt
+- **overpass.ch** als bevorzugter Overpass-Endpunkt: Gehostetes Overpass mit weltweiten Daten, kostenlos bis 10.000 Abfragen pro Monat. Aktiv, sobald in den Einstellungen ein API-Key eingetragen ist, und wird dann als Erstes gefragt. Der Key geht im Header `X-API-Key` mit, nie in der URL, und landet so nicht in Logs oder Fehlermeldungen.
+- Im Footer erscheint bei aktivem Key ein Credit für overpass.ch.
+
 ## [0.5.0] - 2026-10-29
 
 ### Hinzugefügt
@@ -119,7 +125,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/tgigold/svaerma/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/tgigold/svaerma/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/tgigold/svaerma/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/tgigold/svaerma/compare/v0.3.0...v0.4.0
