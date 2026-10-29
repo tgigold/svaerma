@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\App;
 use App\Http\Request;
 use App\Http\Response;
+use App\Model\Visibility;
 
 abstract class Controller
 {
@@ -31,6 +32,15 @@ abstract class Controller
     protected function flash(string $type, string $message): void
     {
         $this->app->session()->flash($type, $message);
+    }
+
+    /**
+     * Restrictions for the current viewer: null when logged in (sees everything),
+     * otherwise the public-mode rules.
+     */
+    protected function visibility(): ?Visibility
+    {
+        return $this->app->auth()->check() ? null : $this->app->publicVisibility();
     }
 
     protected function notFound(): Response

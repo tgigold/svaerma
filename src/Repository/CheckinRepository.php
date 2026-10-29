@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Model\Checkin;
+use App\Model\Visibility;
 use PDO;
 
 final class CheckinRepository
@@ -83,27 +84,47 @@ final class CheckinRepository
         return $result;
     }
 
-    /** @return list<Checkin> newest first */
-    public function page(int $limit, int $offset): array
+    /**
+     * @return list<Checkin> newest first; with $visibility only what visitors may see
+     */
+    public function page(int $limit, int $offset, ?Visibility $visibility = null): array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM checkins ORDER BY checked_in_at DESC, id DESC LIMIT ? OFFSET ?');
-        $stmt->execute([$limit, $offset]);
+        if ($visibility?->limit !== null) {
+            // Never page beyond the public window of the newest N check-ins.
+            $limit = max(0, min($limit, $visibility->limit - $offset));
+            if ($limit === 0) {
+                return [];
+            }
+        }
+        [$where, $params] = $this->visibilityFilter($visibility);
+        $stmt = $this->pdo->prepare("SELECT * FROM checkins $where ORDER BY checked_in_at DESC, id DESC LIMIT ? OFFSET ?");
+        $stmt->execute([...$params, $limit, $offset]);
         return array_map(Checkin::fromRow(...), $stmt->fetchAll());
     }
 
-    public function count(): int
+    public function count(?Visibility $visibility = null): int
     {
-        return (int) $this->pdo->query('SELECT COUNT(*) FROM checkins')->fetchColumn();
+        [$where, $params] = $this->visibilityFilter($visibility);
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM checkins $where");
+        $stmt->execute($params);
+        $count = (int) $stmt->fetchColumn();
+        return $visibility?->limit !== null ? min($count, $visibility->limit) : $count;
     }
 
     /**
-     * Compact rows for the map.
+     * Compact rows for the map, chronological.
      *
      * @return list<array{id: int, lat: float, lon: float, place_name: string, slug: string, checked_in_at: string}>
      */
-    public function allForMap(): array
+    public function allForMap(?Visibility $visibility = null): array
     {
-        $rows = $this->pdo->query('SELECT id, lat, lon, place_name, slug, checked_in_at FROM checkins ORDER BY checked_in_at')->fetchAll();
+        [$where, $params] = $this->visibilityFilter($visibility);
+        $sql = "SELECT id, lat, lon, place_name, slug, checked_in_at FROM checkins $where ORDER BY checked_in_at DESC, id DESC";
+        if ($visibility?->limit !== null) {
+            $sql .= ' LIMIT ' . $visibility->limit;
+        }
+        $stmt = $this->pdo->prepare("SELECT * FROM ($sql) ORDER BY checked_in_at, id");
+        $stmt->execute($params);
         return array_map(static fn (array $r): array => [
             'id' => (int) $r['id'],
             'lat' => (float) $r['lat'],
@@ -111,15 +132,47 @@ final class CheckinRepository
             'place_name' => (string) $r['place_name'],
             'slug' => (string) $r['slug'],
             'checked_in_at' => (string) $r['checked_in_at'],
-        ], $rows);
+        ], $stmt->fetchAll());
     }
 
-    /** @return list<Checkin> All check-ins at the same OSM object, newest first */
-    public function atPlace(string $osmType, int $osmId): array
+    /** @return list<Checkin> All (visible) check-ins at the same OSM object, newest first */
+    public function atPlace(string $osmType, int $osmId, ?Visibility $visibility = null): array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM checkins WHERE osm_type = ? AND osm_id = ? ORDER BY checked_in_at DESC');
+        $stmt = $this->pdo->prepare('SELECT * FROM checkins WHERE osm_type = ? AND osm_id = ? ORDER BY checked_in_at DESC, id DESC');
         $stmt->execute([$osmType, $osmId]);
-        return array_map(Checkin::fromRow(...), $stmt->fetchAll());
+        $checkins = array_map(Checkin::fromRow(...), $stmt->fetchAll());
+        return $visibility === null
+            ? $checkins
+            : array_values(array_filter($checkins, fn (Checkin $c): bool => $this->isVisible($c, $visibility)));
+    }
+
+    /** Whether a visitor may see this check-in (delay, manual places, newest-N window). */
+    public function isVisible(Checkin $checkin, Visibility $visibility): bool
+    {
+        $at = $checkin->checkedInAt->format('Y-m-d H:i:s');
+        if ($at > $visibility->cutoff() || (!$visibility->showManual && $checkin->osmType === null)) {
+            return false;
+        }
+        if ($visibility->limit === null) {
+            return true;
+        }
+        [$where, $params] = $this->visibilityFilter($visibility);
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM checkins $where AND (checked_in_at > ? OR (checked_in_at = ? AND id > ?))");
+        $stmt->execute([...$params, $at, $at, $checkin->id]);
+        return (int) $stmt->fetchColumn() < $visibility->limit;
+    }
+
+    /** @return array{0: string, 1: list<string>} SQL WHERE clause and its parameters */
+    private function visibilityFilter(?Visibility $visibility): array
+    {
+        if ($visibility === null) {
+            return ['WHERE 1 = 1', []];
+        }
+        $where = 'WHERE checked_in_at <= ?';
+        if (!$visibility->showManual) {
+            $where .= ' AND osm_type IS NOT NULL';
+        }
+        return [$where, [$visibility->cutoff()]];
     }
 
     /**

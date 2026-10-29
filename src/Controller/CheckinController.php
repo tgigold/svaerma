@@ -38,7 +38,8 @@ final class CheckinController extends Controller
     public function index(array $params): Response
     {
         $repo = $this->app->checkins();
-        $total = $repo->count();
+        $visibility = $this->visibility();
+        $total = $repo->count($visibility);
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page = max(1, (int) ($this->request->query['page'] ?? 1));
         if ($page > $pages) {
@@ -47,7 +48,7 @@ final class CheckinController extends Controller
 
         // Group by the local calendar day of each check-in.
         $days = [];
-        foreach ($repo->page(self::PER_PAGE, ($page - 1) * self::PER_PAGE) as $checkin) {
+        foreach ($repo->page(self::PER_PAGE, ($page - 1) * self::PER_PAGE, $visibility) as $checkin) {
             $days[$checkin->localTime()->format('Y-m-d')][] = $checkin;
         }
 
@@ -56,6 +57,7 @@ final class CheckinController extends Controller
             'page' => $page,
             'pages' => $pages,
             'total' => $total,
+            'showNotes' => $visibility === null || $visibility->showNotes,
         ]);
     }
 
@@ -63,7 +65,8 @@ final class CheckinController extends Controller
     public function show(array $params): Response
     {
         $checkin = $this->app->checkins()->find((int) $params['id']);
-        if ($checkin === null) {
+        $visibility = $this->visibility();
+        if ($checkin === null || ($visibility !== null && !$this->app->checkins()->isVisible($checkin, $visibility))) {
             return $this->notFound();
         }
         $canonical = $checkin->canonicalRedirect($params['slug'] ?? '');
@@ -72,12 +75,13 @@ final class CheckinController extends Controller
         }
 
         $visits = $checkin->osmType !== null && $checkin->osmId !== null
-            ? $this->app->checkins()->atPlace($checkin->osmType, $checkin->osmId)
+            ? $this->app->checkins()->atPlace($checkin->osmType, $checkin->osmId, $visibility)
             : [$checkin];
 
         return $this->render('checkin/show', [
             'checkin' => $checkin,
             'visits' => $visits,
+            'showNotes' => $visibility === null || $visibility->showNotes,
             'leaflet' => true,
             'scripts' => ['map.js'],
             'tileUrl' => (string) $this->app->config->get('osm.tile_url'),
@@ -161,7 +165,7 @@ final class CheckinController extends Controller
     public function mapData(array $params): Response
     {
         $rows = [];
-        foreach ($this->app->checkins()->allForMap() as $r) {
+        foreach ($this->app->checkins()->allForMap($this->visibility()) as $r) {
             $rows[] = [
                 $r['id'],
                 $r['lat'],
