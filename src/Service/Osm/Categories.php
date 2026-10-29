@@ -57,6 +57,25 @@ final class Categories
     ];
 
     /**
+     * Whether a tag set describes a place worth checking in to.
+     *
+     * @param array<string, string> $tags
+     */
+    public static function matches(array $tags): bool
+    {
+        foreach (self::KEYS as $key) {
+            $value = $tags[$key] ?? null;
+            if ($value === null) {
+                continue;
+            }
+            if (!isset(self::EXCLUDED[$key]) || !preg_match('/^(' . self::EXCLUDED[$key] . ')$/', $value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Human-readable category for an OSM tag set, e.g. "Café" or "Shop: Tea".
      *
      * @param array<string, string> $tags

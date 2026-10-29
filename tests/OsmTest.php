@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests;
 
 use App\Repository\CacheRepository;
+use App\Service\Osm\Categories;
 use App\Service\Osm\Geo;
 use App\Service\Osm\OsmException;
 use App\Service\Osm\Overpass;
@@ -21,7 +22,7 @@ final class OsmTest extends TestCase
     public function testOverpassParsesSortsAndDeduplicates(): void
     {
         $http = new FakeHttpClient($this->fixture('overpass'));
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), 'https://overpass.test/api', 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
 
         $places = $overpass->nearby(52.52, 13.405, 150);
 
@@ -37,7 +38,7 @@ final class OsmTest extends TestCase
     public function testOverpassUsesCacheForNearbyRequests(): void
     {
         $http = new FakeHttpClient($this->fixture('overpass'));
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), 'https://overpass.test/api', 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
 
         $overpass->nearby(52.52001, 13.40501, 150);
         $overpass->nearby(52.52002, 13.40502, 150); // same ~11 m grid cell
@@ -50,18 +51,70 @@ final class OsmTest extends TestCase
     public function testOverpassClampsRadiusAndBuildsQuery(): void
     {
         $http = new FakeHttpClient('{"elements": []}');
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), 'https://overpass.test/api', 60);
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
         $overpass->nearby(52.5, 13.4, 999999);
 
         $query = (string) $http->requests[0]['data']['data'];
-        self::assertStringContainsString('around:1000,52.500000,13.400000', $query);
-        self::assertStringContainsString('["name"]["amenity"]["amenity"!~"^(bench|', $query);
+        self::assertStringContainsString('nwr(around:1000,52.500000,13.400000)["name"];', $query);
         self::assertStringContainsString('out tags center qt;', $query);
+    }
+
+    public function testFallsBackToNextEndpoint(): void
+    {
+        $http = new FakeHttpClient(function (string $url): string {
+            if (str_contains($url, 'primary')) {
+                throw new OsmException('Der Dienst antwortet mit HTTP 504.');
+            }
+            return $this->fixture('overpass');
+        });
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://primary.test/api', 'https://backup.test/api'], 60);
+
+        self::assertCount(4, $overpass->nearby(52.52, 13.405, 150));
+        self::assertSame(['https://primary.test/api', 'https://backup.test/api'], array_column($http->requests, 'url'));
+    }
+
+    public function testErrorNamesEveryFailedEndpoint(): void
+    {
+        $http = new FakeHttpClient(static fn (string $url): string => throw new OsmException('HTTP 429'));
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://a.test/api', 'https://b.test/api'], 60);
+
+        $this->expectExceptionMessage('a.test: HTTP 429 | b.test: HTTP 429');
+        $overpass->nearby(52.52, 13.405, 150);
+    }
+
+    public function testRuntimeErrorRemarkIsNotCached(): void
+    {
+        $calls = 0;
+        $http = new FakeHttpClient(function () use (&$calls): string {
+            $calls++;
+            return $calls === 1
+                ? '{"elements": [], "remark": "runtime error: Query timed out in \"query\" at line 2 after 20 seconds."}'
+                : $this->fixture('overpass');
+        });
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
+
+        try {
+            $overpass->nearby(52.52, 13.405, 150);
+            self::fail('Expected timeout to surface');
+        } catch (OsmException $e) {
+            self::assertStringContainsString('timed out', $e->getMessage());
+        }
+        self::assertCount(4, $overpass->nearby(52.52, 13.405, 150), 'Second call hits the API again');
+    }
+
+    public function testCategoryFilter(): void
+    {
+        self::assertTrue(Categories::matches(['name' => 'X', 'amenity' => 'cafe']));
+        self::assertFalse(Categories::matches(['name' => 'X', 'amenity' => 'bench']));
+        self::assertFalse(Categories::matches(['name' => 'Hauptstraße', 'highway' => 'residential']));
+        self::assertFalse(Categories::matches(['name' => 'Haus', 'building' => 'yes']));
+        self::assertTrue(Categories::matches(['name' => 'Dom', 'building' => 'cathedral']));
+        self::assertTrue(Categories::matches(['name' => 'X', 'amenity' => 'bench', 'tourism' => 'viewpoint']));
     }
 
     public function testOverpassRejectsInvalidResponse(): void
     {
-        $overpass = new Overpass(new FakeHttpClient('<html>error</html>'), new CacheRepository($this->migratedPdo()), 'x', 60);
+        $overpass = new Overpass(new FakeHttpClient('<html>error</html>'), new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
         $this->expectException(OsmException::class);
         $overpass->nearby(52.5, 13.4, 100);
     }

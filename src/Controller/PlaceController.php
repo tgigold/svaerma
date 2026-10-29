@@ -26,7 +26,10 @@ final class PlaceController extends Controller
             $places = $this->app->overpass()->nearby($coords[0], $coords[1], $radius);
         } catch (OsmException $e) {
             $this->app->log('Overpass: ' . $e->getMessage());
-            return Response::json(['error' => 'Overpass ist gerade nicht erreichbar. Nutze die Suche oder einen eigenen Ort.'], 502);
+            return Response::json([
+                'error' => 'Overpass ist gerade nicht erreichbar. Nutze die Suche oder einen eigenen Ort.',
+                'detail' => $e->getMessage(),
+            ], 502);
         }
         return Response::json(['places' => $this->withVisits($places)]);
     }
@@ -39,7 +42,7 @@ final class PlaceController extends Controller
             $places = $this->app->placeSearch()->search($this->request->input('q'), $coords[0] ?? null, $coords[1] ?? null);
         } catch (OsmException $e) {
             $this->app->log('Search: ' . $e->getMessage());
-            return Response::json(['error' => 'Die Ortssuche ist gerade nicht erreichbar.'], 502);
+            return Response::json(['error' => 'Die Ortssuche ist gerade nicht erreichbar.', 'detail' => $e->getMessage()], 502);
         }
         return Response::json(['places' => $this->withVisits($places)]);
     }

@@ -58,7 +58,9 @@ document.addEventListener('DOMContentLoaded', function () {
           if (res.status === 401) {
             window.location.href = '/login';
           }
-          if (!res.ok) throw new Error(data.error || 'Fehler ' + res.status);
+          if (!res.ok) {
+            throw new Error((data.error || 'Fehler ' + res.status) + (data.detail ? ' (' + data.detail + ')' : ''));
+          }
           return data;
         });
       });
