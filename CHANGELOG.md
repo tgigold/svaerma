@@ -7,6 +7,17 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-29
+
+### Hinzugefügt
+- **REST-API** `/api/v1`: Check-ins lesen (Liste mit `limit`/`offset`, einzeln), Check-ins anlegen (JSON oder Formular, Einzelfelder oder Ort-Objekt) und Orte in der Nähe abfragen. Das Ergebnis enthält `choices` mit lesbaren Labels für „Aus Liste auswählen“ in iOS-Kurzbefehlen.
+- **API-Tokens** (Migration `003_api_tokens`): in den Einstellungen erzeugen, einmalig anzeigen, widerrufen, mit Anzeige der letzten Nutzung. Gespeichert wird nur der SHA-256-Hash. Falsche Tokens zählen zum Login-Rate-Limit.
+- Anleitung für einen iOS-Kurzbefehl „Einchecken“ im README.
+- Kernel-Tests für die API: Token-Prüfung, Widerruf, Sperre, Anlegen, Lesen, Validierung, CSRF-Abgrenzung.
+
+### Geändert
+- `overpass.osm.jp` ist kein Standard-Fallback mehr, das TLS-Zertifikat des Servers ist abgelaufen. Weitere Endpunkte lassen sich in den Einstellungen eintragen.
+
 ## [0.4.1] - 2026-10-29
 
 ### Behoben
@@ -108,7 +119,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/tgigold/svaerma/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/tgigold/svaerma/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/tgigold/svaerma/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tgigold/svaerma/compare/v0.2.2...v0.3.0

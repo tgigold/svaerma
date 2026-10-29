@@ -12,6 +12,7 @@ Live unter `https://checkin.gigold.me`.
 - [Konfiguration](#konfiguration)
 - [Einchecken und OpenStreetMap](#einchecken-und-openstreetmap)
 - [Ansichten und URLs](#ansichten-und-urls)
+- [API](#api)
 - [Deployment und Updates](#deployment-und-updates)
 - [Migrationen](#migrationen)
 - [Backup](#backup)
@@ -91,7 +92,7 @@ Wichtig: In die oberste `.htaccess` gehört **kein** `Require all denied`. Apach
 | `osm.overpass_url` | Overpass-Endpunkt für Orte in der Nähe |
 | `osm.overpass_timeout` | Timeout pro Overpass-Endpunkt in Sekunden (Standard: 12), danach greift der Fallback |
 | `osm.photon_reverse_url` | Photon-Reverse-Endpunkt: Umkreissuche, wenn Overpass ausfällt |
-| `osm.overpass_fallback_urls` | Liste weiterer Overpass-Instanzen, die bei Fehlern der Reihe nach versucht werden (Standard: `overpass.osm.jp`, `[]` = keine) |
+| `osm.overpass_fallback_urls` | Liste weiterer Overpass-Instanzen, die bei Fehlern der Reihe nach versucht werden (Standard: keine, weitere auch in den Einstellungen) |
 | `osm.geoapify_url` | Geoapify-Places-Endpunkt (aktiv nur mit API-Key aus den Einstellungen) |
 | `osm.search_provider` | `photon` (Standard) oder `nominatim` für die Namenssuche |
 | `osm.photon_url`, `osm.nominatim_url` | Endpunkte der Namenssuche |
@@ -141,6 +142,83 @@ Unter *Einstellungen → Öffentlich* lassen sich **Verlauf, Karte und Detailsei
 Gäste sehen keine Bearbeiten-, Lösch- oder Einchecken-Funktionen. Die Startseite `/` leitet sie in den Verlauf, zum Login geht es oben rechts. Technisch sind die betroffenen Routen in `src/routes.php` mit `'guest' => true` markiert. Was Gäste sehen, regelt `App\Model\Visibility` im `CheckinRepository`.
 
 Uhrzeiten werden in der **Ortszeit des Check-ins** angezeigt. Ein Check-in in Tokio um 12:00 bleibt also 12:00, auch wenn du die Liste in Berlin ansiehst.
+
+## API
+
+Die REST-API unter `/api/v1` ist vor allem für den iOS-Kurzbefehl gedacht.
+
+**Token:** Unter *Einstellungen → API* einen Token erzeugen (z. B. „iPhone“). Er wird **genau einmal** angezeigt, gespeichert wird nur sein SHA-256-Hash. Dort lässt er sich auch jederzeit widerrufen. Jede Anfrage braucht den Header:
+
+```
+Authorization: Bearer svm_…
+```
+
+Fehlversuche zählen zum selben Rate-Limit wie der Login (5 pro IP und 15 Minuten). Danach antwortet die API mit `429`.
+
+### Endpunkte
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/v1/places/nearby?lat=…&lon=…[&radius=…]` | Orte in der Nähe (gleiche Fallback-Kette wie im Web) |
+| `POST` | `/api/v1/checkins` | Check-in anlegen |
+| `GET` | `/api/v1/checkins[?limit=50&offset=0]` | Check-ins, neueste zuerst (max. 200 pro Seite, `next` verweist auf die nächste Seite) |
+| `GET` | `/api/v1/checkins/{id}` | Ein Check-in |
+
+**`places/nearby`** liefert `places` (Liste) und zusätzlich `choices`: ein Objekt aus lesbarem Label (z. B. `"Café Müller · Café · 13 m"`) und Ort. Genau das braucht „Aus Liste auswählen“ im Kurzbefehl.
+
+```json
+{
+  "source": "overpass",
+  "notice": null,
+  "radius": 150,
+  "places": [{ "name": "Café Müller", "lat": 52.5201, "lon": 13.4051, "osm_type": "node", "osm_id": 1001,
+               "category": "Café", "address": "Rosenthaler Straße 12", "distance": 13,
+               "visits": 2, "last_visit": "28.10.2026", "label": "Café Müller · Café · 13 m" }],
+  "choices": { "Café Müller · Café · 13 m": { "name": "Café Müller", "…": "…" } }
+}
+```
+
+**`POST /api/v1/checkins`** nimmt JSON oder Formulardaten an, entweder als Einzelfelder oder als ganzes Ort-Objekt aus `places/nearby`:
+
+```json
+{ "place": { "name": "Café Müller", "lat": 52.5201, "lon": 13.4051, "osm_type": "node", "osm_id": 1001 }, "note": "Flat White" }
+```
+
+```json
+{ "lat": 52.52, "lon": 13.405, "place_name": "Bei Oma", "note": "…", "timezone": "Europe/Berlin", "checked_in_at": "2026-10-29T10:00:00Z" }
+```
+
+Ohne Angaben sind `checked_in_at` jetzt und `timezone` die Standard-Zeitzone aus der Config. Die Antwort ist `201` mit dem Check-in (inkl. `url` zur Detailseite), bei ungültigen Daten `422` mit `errors`.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "https://checkin.gigold.me/api/v1/places/nearby?lat=51.4&lon=12.1"
+```
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"lat":51.4,"lon":12.1,"place_name":"Test"}' https://checkin.gigold.me/api/v1/checkins
+```
+
+### Beispiel: iOS-Kurzbefehl „Einchecken“
+
+In der Kurzbefehle-App einen neuen Kurzbefehl anlegen und diese Aktionen in dieser Reihenfolge hinzufügen:
+
+1. **Text**: deinen Token einfügen (`svm_…`). Die Variable z. B. in *Token* umbenennen.
+2. **Aktuellen Standort abrufen**
+3. **Inhalte von URL abrufen**
+   - URL: `https://checkin.gigold.me/api/v1/places/nearby?lat=` *Breitengrad* `&lon=` *Längengrad*. Die Variablen über *Aktueller Standort → Breitengrad/Längengrad* einfügen.
+   - Methode: `GET`. Header: `Authorization` = `Bearer ` *Token*
+4. **Wörterbuchwert abrufen**: *Wert* für Schlüssel `choices` in *Inhalte von URL*
+5. **Wörterbuchwert abrufen**: *Alle Schlüssel* in *Wörterbuchwert* (aus Schritt 4)
+6. **Aus Liste auswählen**: *Schlüssel*, Eingabeaufforderung „Wo bist du?“
+7. **Wörterbuchwert abrufen**: *Wert* für Schlüssel *Ausgewähltes Objekt* in *Wörterbuchwert* (aus Schritt 4). Das ist der gewählte Ort.
+8. **Nach Eingabe fragen**: „Notiz?“ (Text, optional leer lassen)
+9. **Inhalte von URL abrufen**
+   - URL: `https://checkin.gigold.me/api/v1/checkins`, Methode: `POST`
+   - Header: `Authorization` = `Bearer ` *Token*
+   - Anfragetext: **JSON** mit zwei Feldern: `place` (Typ *Wörterbuch*) = *Wörterbuchwert* aus Schritt 7, `note` (Typ *Text*) = *Eingabe*
+10. **Wörterbuchwert abrufen**: *Wert* für `place_name` in *Inhalte von URL*, danach **Mitteilung anzeigen**: „Eingecheckt: …“
+
+Tipp: Über *Zum Home-Bildschirm* oder die Aktionstaste bist du mit einem Tipp dabei. Liefert Schritt 3 einen Fehler, steht der Grund im Feld `error` (z. B. `401` = Token falsch oder widerrufen).
 
 ## Deployment und Updates
 
@@ -227,7 +305,8 @@ Bestehender Code muss dafür nicht angefasst werden, abgesehen von `routes.php` 
 - In Templates wird jede Ausgabe mit `e()` escaped.
 - Session-Cookies sind `Secure`, `HttpOnly` und `SameSite=Lax`, Sessions liegen in `data/sessions`. Nach dem Login wird die Session-ID neu erzeugt.
 - Jedes Formular ist per CSRF-Token geschützt.
-- Nach 5 Fehlversuchen pro IP bzw. 25 insgesamt ist der Login 15 Minuten gesperrt.
+- Nach 5 Fehlversuchen pro IP bzw. 25 insgesamt ist der Login 15 Minuten gesperrt. Falsche API-Tokens zählen mit.
+- API-Tokens werden nur als SHA-256-Hash gespeichert und lassen sich jederzeit widerrufen. API-Anfragen nutzen keine Session und brauchen daher kein CSRF-Token.
 - HTTPS ist Pflicht (Redirect in `.htaccess` und in der App), dazu kommen HSTS, eine strikte Content Security Policy und `X-Frame-Options: DENY`.
 - `Referrer-Policy: strict-origin-when-cross-origin`: Fremde Server (z. B. OSM-Kacheln, die einen Referer verlangen) sehen nur die Domain, nie den Pfad.
 - In Produktion gibt es keine Fehlerdetails. Fehler landen in `data/logs/error.log`.
