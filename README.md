@@ -89,6 +89,7 @@ Wichtig: In die oberste `.htaccess` gehört **kein** `Require all denied`. Apach
 | `base_url` | Öffentliche Adresse ohne `/` am Ende |
 | `contact_email` | Kontakt im User-Agent für Overpass, Photon und Nominatim |
 | `timezone` | Standard-Zeitzone für die Anzeige |
+| `osm.overpass_ch_url` | overpass.ch-Endpunkt. Wird als Erstes genutzt, wenn in den Einstellungen ein API-Key gesetzt ist |
 | `osm.overpass_url` | Overpass-Endpunkt für Orte in der Nähe |
 | `osm.overpass_timeout` | Timeout pro Overpass-Endpunkt in Sekunden (Standard: 12), danach greift der Fallback |
 | `osm.photon_reverse_url` | Photon-Reverse-Endpunkt: Umkreissuche, wenn Overpass ausfällt |
@@ -105,7 +106,7 @@ Alles, was du im Alltag änderst (Suchradius, öffentlicher Modus, Geoapify-Key)
 ## Einchecken und OpenStreetMap
 
 1. Die Startseite fragt den Standort per Browser-Geolocation ab. Das geht nur über HTTPS und nur mit deiner Erlaubnis.
-2. Der Server fragt bei **Overpass** alle benannten Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*). Er filtert sie nach Kategorie und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
+2. Der Server fragt bei **Overpass** (mit Key zuerst bei [overpass.ch](https://overpass.ch/), dann `overpass-api.de` und weitere Endpunkte) alle benannten Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*). Er filtert sie nach Kategorie und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
    Ist Overpass nicht erreichbar (auch keiner der weiteren Endpunkte aus Config und Einstellungen), fragt die App **Geoapify** (nur mit API-Key, Places API) und die **Reverse-Suche von Photon** ab und führt beide Listen zusammen. Duplikate werden entfernt: gleiches OSM-Objekt, oder gleicher Name innerhalb von 40 m. Ein Hinweis zeigt an, woher die Liste stammt. Nach einem kompletten Overpass-Ausfall wird Overpass 5 Minuten lang übersprungen.
 3. Ist das GPS ungenauer als der Radius, wird bis zur Messgenauigkeit gesucht, maximal 1000 m. **Umkreis erweitern** verdoppelt den Radius.
 4. Fallback ist die **Namenssuche** über Photon (oder Nominatim), mit deinem Standort als Gewichtung.
