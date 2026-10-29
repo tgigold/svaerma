@@ -9,16 +9,21 @@ use App\Repository\CacheRepository;
 
 /**
  * Finds named places around a coordinate via the Overpass API.
+ *
+ * The query asks only for "named objects around X" (cheap for the server);
+ * filtering by category happens here in PHP. Endpoints are tried in order.
  */
 final class Overpass
 {
     public const MIN_RADIUS = 10;
     public const MAX_RADIUS = 1000;
+    private const QUERY_TIMEOUT = 20;
 
+    /** @param list<string> $endpoints */
     public function __construct(
         private HttpClient $http,
         private CacheRepository $cache,
-        private string $endpoint,
+        private array $endpoints,
         private int $ttl,
     ) {
     }
@@ -28,30 +33,63 @@ final class Overpass
     {
         $radius = max(self::MIN_RADIUS, min(self::MAX_RADIUS, $radius));
         // ~11 m grid: neighbouring requests share a cache entry.
-        $key = sprintf('overpass:%.4f,%.4f,%d', $lat, $lon, $radius);
-        $json = $this->cache->remember($key, $this->ttl, fn (): string => $this->http->post($this->endpoint, [
-            'data' => self::query($lat, $lon, $radius),
-        ]));
+        $key = sprintf('overpass:v2:%.4f,%.4f,%d', $lat, $lon, $radius);
 
-        $data = json_decode($json, true);
-        if (!is_array($data) || !isset($data['elements']) || !is_array($data['elements'])) {
-            throw new OsmException('Overpass hat keine gültige Antwort geliefert.');
+        $json = $this->cache->get($key);
+        if ($json === null) {
+            $json = $this->fetch(self::query($lat, $lon, $radius));
+            // Only valid, complete answers are cached.
+            $this->cache->set($key, $json, $this->ttl);
         }
+
+        /** @var array{elements: array<mixed>} $data */
+        $data = json_decode($json, true);
         return self::parse($data['elements'], $lat, $lon);
+    }
+
+    /**
+     * Sends a query to the first endpoint that answers properly.
+     *
+     * @throws OsmException with the reason of every endpoint that failed
+     */
+    public function fetch(string $query): string
+    {
+        $errors = [];
+        foreach ($this->endpoints as $endpoint) {
+            try {
+                $json = $this->http->post($endpoint, ['data' => $query]);
+                self::validate($json);
+                return $json;
+            } catch (OsmException $e) {
+                $errors[] = (parse_url($endpoint, PHP_URL_HOST) ?: $endpoint) . ': ' . $e->getMessage();
+            }
+        }
+        throw new OsmException(implode(' | ', $errors) ?: 'Kein Overpass-Endpunkt konfiguriert.');
     }
 
     public static function query(float $lat, float $lon, int $radius): string
     {
-        $around = sprintf('(around:%d,%.6F,%.6F)', $radius, $lat, $lon);
-        $parts = [];
-        foreach (Categories::KEYS as $key) {
-            $filter = sprintf('["name"]["%s"]', $key);
-            if (isset(Categories::EXCLUDED[$key])) {
-                $filter .= sprintf('["%s"!~"^(%s)$"]', $key, Categories::EXCLUDED[$key]);
-            }
-            $parts[] = "  nwr$around$filter;";
+        return sprintf(
+            "[out:json][timeout:%d];\nnwr(around:%d,%.6F,%.6F)[\"name\"];\nout tags center qt;",
+            self::QUERY_TIMEOUT,
+            $radius,
+            $lat,
+            $lon,
+        );
+    }
+
+    /**
+     * Overpass reports timeouts and memory errors as HTTP 200 with a "remark".
+     */
+    private static function validate(string $json): void
+    {
+        $data = json_decode($json, true);
+        if (!is_array($data) || !isset($data['elements']) || !is_array($data['elements'])) {
+            throw new OsmException('ungültige Antwort');
         }
-        return "[out:json][timeout:15];\n(\n" . implode("\n", $parts) . "\n);\nout tags center qt;";
+        if (isset($data['remark']) && is_string($data['remark']) && str_contains($data['remark'], 'error')) {
+            throw new OsmException($data['remark']);
+        }
     }
 
     /**
@@ -62,7 +100,12 @@ final class Overpass
     {
         $places = [];
         foreach ($elements as $el) {
-            if (!is_array($el) || !isset($el['type'], $el['id'], $el['tags']['name'])) {
+            if (!is_array($el) || !isset($el['type'], $el['id'], $el['tags']['name']) || !is_array($el['tags'])) {
+                continue;
+            }
+            /** @var array<string, string> $tags */
+            $tags = $el['tags'];
+            if (!Categories::matches($tags)) {
                 continue;
             }
             $pLat = $el['lat'] ?? $el['center']['lat'] ?? null;
@@ -70,8 +113,6 @@ final class Overpass
             if (!is_numeric($pLat) || !is_numeric($pLon)) {
                 continue;
             }
-            /** @var array<string, string> $tags */
-            $tags = $el['tags'];
             $key = $el['type'] . '/' . $el['id'];
             $places[$key] ??= new Place(
                 name: (string) $tags['name'],

@@ -29,7 +29,7 @@ use PDO;
  */
 final class App
 {
-    public const VERSION = '0.2.0';
+    public const VERSION = '0.2.1';
     public const DEFAULT_RADIUS = 150;
 
     private ?PDO $pdo = null;
@@ -125,9 +125,17 @@ final class App
         return new Overpass(
             $this->http(),
             new CacheRepository($this->pdo()),
-            (string) $this->config->get('osm.overpass_url'),
+            $this->overpassEndpoints(),
             (int) $this->config->get('osm.cache_ttl'),
         );
+    }
+
+    /** @return list<string> */
+    public function overpassEndpoints(): array
+    {
+        $fallbacks = $this->config->get('osm.overpass_fallback_urls', []);
+        $urls = [(string) $this->config->get('osm.overpass_url'), ...(is_array($fallbacks) ? $fallbacks : [])];
+        return array_values(array_unique(array_filter(array_map('strval', $urls))));
     }
 
     public function placeSearch(): PlaceSearch

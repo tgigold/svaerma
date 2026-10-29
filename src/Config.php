@@ -28,12 +28,14 @@ final class Config
             'data_dir' => APP_ROOT . '/data',
             'osm' => [
                 'overpass_url' => 'https://overpass-api.de/api/interpreter',
+                // Tried in order when the main endpoint fails (see wiki.openstreetmap.org/wiki/Overpass_API).
+                'overpass_fallback_urls' => ['https://overpass.private.coffee/api/interpreter'],
                 'photon_url' => 'https://photon.komoot.io/api/',
                 'nominatim_url' => 'https://nominatim.openstreetmap.org/search',
                 'search_provider' => 'photon',
                 'tile_url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 'cache_ttl' => 86400,
-                'timeout' => 15,
+                'timeout' => 25,
             ],
         ];
     }
@@ -63,7 +65,25 @@ final class Config
     /** @param array<string, mixed> $values */
     public static function fromArray(array $values): self
     {
-        return new self(array_replace_recursive(self::defaults(), $values));
+        return new self(self::merge(self::defaults(), $values));
+    }
+
+    /**
+     * Recursive merge where lists (e.g. fallback URLs) are replaced as a whole,
+     * so an empty list in config.php really means "none".
+     *
+     * @param array<mixed> $base
+     * @param array<mixed> $override
+     * @return array<mixed>
+     */
+    private static function merge(array $base, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            $base[$key] = is_array($value) && !array_is_list($value) && is_array($base[$key] ?? null)
+                ? self::merge($base[$key], $value)
+                : $value;
+        }
+        return $base;
     }
 
     /**

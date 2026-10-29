@@ -21,11 +21,12 @@ return [
     // OpenStreetMap endpoints – swap for your own instances if you like.
     'osm' => [
         'overpass_url' => 'https://overpass-api.de/api/interpreter',
+        'overpass_fallback_urls' => ['https://overpass.private.coffee/api/interpreter'], // [] = no fallback
         'photon_url' => 'https://photon.komoot.io/api/',
         'nominatim_url' => 'https://nominatim.openstreetmap.org/search',
         'search_provider' => 'photon', // 'photon' or 'nominatim'
         'tile_url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         'cache_ttl' => 86400, // seconds
-        'timeout' => 15,      // HTTP timeout in seconds
+        'timeout' => 25,      // HTTP timeout in seconds
     ],
 ];

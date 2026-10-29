@@ -60,4 +60,16 @@ $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.'
             </div>
         </div>
     </div>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 card-title">OpenStreetMap</h2>
+                <p class="small text-body-secondary">Prüft, ob der Server Overpass und die Ortssuche erreicht (ohne Cache).</p>
+                <form method="post" action="/admin/osm-test">
+                    <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+                    <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-broadcast"></i> OSM-Verbindung testen</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
