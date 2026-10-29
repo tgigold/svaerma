@@ -14,6 +14,7 @@ use App\Http\Router;
  * All routes. Options:
  *   public            => true  no login required
  *   guest             => true  readable without login when public mode is on (settings)
+ *   guest_redirect    => path  where visitors go instead of the login when public mode is on
  *   setup             => true  only reachable before setup is complete
  *   api               => true  token auth instead of session/CSRF (see API controllers)
  *   ignore_migrations => true  reachable while migrations are pending
@@ -26,7 +27,7 @@ return static function (Router $r): void {
     $r->post('/login', [AuthController::class, 'login'], ['public' => true]);
     $r->post('/logout', [AuthController::class, 'logout'], ['ignore_migrations' => true]);
 
-    $r->get('/', [CheckinController::class, 'create']);
+    $r->get('/', [CheckinController::class, 'create'], ['guest_redirect' => '/checkins']);
     $r->post('/checkin', [CheckinController::class, 'store']);
     $r->get('/checkins', [CheckinController::class, 'index'], ['guest' => true]);
     $r->get('/checkin/{id:\d+}{slug:(?:-[^/]*)?}', [CheckinController::class, 'show'], ['guest' => true]);
