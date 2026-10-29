@@ -7,6 +7,21 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-29
+
+### Behoben
+- „Overpass ist gerade nicht erreichbar“ bei der Umkreissuche. Die Abfrage fragt jetzt nur noch benannte Objekte im Umkreis ab, statt 15 Teilabfragen zu stellen. Das Filtern nach Kategorien passiert in PHP, das ist für Overpass deutlich billiger und läuft seltener in Timeouts oder Rate-Limits.
+- Overpass-Antworten mit Laufzeitfehler (HTTP 200 mit `remark`) werden als Fehler erkannt und nicht mehr als leeres Ergebnis gecacht.
+- Eine leere Liste in `config.php` (z. B. `overpass_fallback_urls => []`) ersetzt jetzt den Default, statt mit ihm zusammengeführt zu werden.
+
+### Hinzugefügt
+- Fallback-Endpunkte für Overpass (`osm.overpass_fallback_urls`, Standard: `overpass.private.coffee`). Sie werden der Reihe nach versucht.
+- Button **OSM-Verbindung testen** in `/admin`: prüft jeden Overpass-Endpunkt und die Ortssuche ohne Cache und zeigt Antwortzeit oder Fehlergrund.
+- Der Fehlergrund (z. B. `HTTP 504`) erscheint jetzt auch in der Meldung auf der Check-in-Seite.
+
+### Geändert
+- Der HTTP-Timeout für OSM-Dienste liegt jetzt bei 25 s statt 15 s, das Overpass-Query-Timeout bei 20 s.
+
 ## [0.2.0] - 2026-10-29
 
 ### Hinzugefügt
@@ -35,6 +50,7 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/tgigold/svaerma/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tgigold/svaerma/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tgigold/svaerma/releases/tag/v0.1.0

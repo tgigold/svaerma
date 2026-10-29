@@ -88,6 +88,7 @@ Wichtig: In die oberste `.htaccess` gehört **kein** `Require all denied`. Apach
 | `contact_email` | Kontakt im User-Agent für Overpass, Photon und Nominatim |
 | `timezone` | Standard-Zeitzone für die Anzeige |
 | `osm.overpass_url` | Overpass-Endpunkt für Orte in der Nähe |
+| `osm.overpass_fallback_urls` | Liste weiterer Overpass-Instanzen, die bei Fehlern der Reihe nach versucht werden (`[]` = keine) |
 | `osm.search_provider` | `photon` (Standard) oder `nominatim` für die Namenssuche |
 | `osm.photon_url`, `osm.nominatim_url` | Endpunkte der Namenssuche |
 | `osm.tile_url` | Kachel-Server für die Karte |
@@ -99,13 +100,15 @@ Alles, was du im Alltag änderst (z. B. den Suchradius), liegt unter **Einstellu
 ## Einchecken und OpenStreetMap
 
 1. Die Startseite fragt den Standort per Browser-Geolocation ab. Das geht nur über HTTPS und nur mit deiner Erlaubnis.
-2. Der Server fragt bei **Overpass** benannte Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*) und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
+2. Der Server fragt bei **Overpass** alle benannten Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*). Er filtert sie nach Kategorie und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
 3. Ist das GPS ungenauer als der Radius, wird bis zur Messgenauigkeit gesucht, maximal 1000 m. **Umkreis erweitern** verdoppelt den Radius.
 4. Fallback ist die **Namenssuche** über Photon (oder Nominatim), mit deinem Standort als Gewichtung.
 5. Mit **Eigener Ort** checkst du mit freiem Namen an deinem aktuellen Standort ein.
 6. Hast du an einem OSM-Ort schon eingecheckt, zeigt die Liste „zuletzt am …“ und die Anzahl der Besuche. Dafür werden `osm_type` und `osm_id` gespeichert.
 
 Gespeichert werden bei OSM-Orten die Koordinaten des Orts, bei eigenen Orten dein Standort. Die Zeit steht in UTC in der Datenbank, die Zeitzone deines Geräts wird mitgespeichert.
+
+**Wenn die Umkreissuche nicht geht:** In `/admin` auf **OSM-Verbindung testen** klicken. Du siehst dann für jeden Endpunkt „OK“ oder den Fehlergrund, z. B. `HTTP 429` (Rate-Limit), `HTTP 504` (überlastet) oder einen Verbindungsfehler (Hoster blockt ausgehende Verbindungen). Details landen außerdem in `data/logs/error.log`.
 
 **Fair Use:** Alle Anfragen laufen über den Server, nie direkt aus dem Browser. Sie tragen einen User-Agent mit Kontakt-Mail (`CheckinLog/<version> (+<base_url>; <contact_email>)`) und landen mit TTL in der Tabelle `osm_cache`. Für Overpass teilen sich Anfragen in einem Raster von etwa 11 m einen Cache-Eintrag. Nominatim wird prozessübergreifend auf höchstens 1 Anfrage pro Sekunde gedrosselt (Lock-Datei `data/nominatim.lock`). Die Endpunkte lassen sich in der Config austauschen, z. B. gegen eine eigene Overpass-Instanz.
 
