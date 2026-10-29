@@ -7,6 +7,17 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-29
+
+### Behoben
+- Lieferte ein Fallback (z. B. Geoapify) eine leere Liste, wurde Photon gar nicht mehr gefragt. Fällt Overpass aus, werden jetzt **alle** Fallbacks abgefragt und ihre Ergebnisse zusammengeführt. Duplikate fliegen raus: gleiches OSM-Objekt, oder gleicher Name innerhalb von 40 m.
+- Gäste landen bei aktivem öffentlichen Modus auf `/` jetzt im Verlauf statt auf der Login-Seite.
+
+### Hinzugefügt
+- Weitere Overpass-Endpunkte lassen sich in den Einstellungen eintragen (einer pro Zeile), ohne `config.php` per FTP anzufassen.
+- Die OSM-Diagnose zeigt pro Dienst die Anzahl der gefundenen Orte (Testpunkt: Brandenburger Tor, 100 m).
+- Neue Routen-Option `guest_redirect`.
+
 ## [0.4.0] - 2026-10-29
 
 ### Hinzugefügt
@@ -97,7 +108,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/tgigold/svaerma/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/tgigold/svaerma/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tgigold/svaerma/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/tgigold/svaerma/compare/v0.2.1...v0.2.2
