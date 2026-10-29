@@ -67,7 +67,7 @@ final class AdminController extends Controller
      */
     public function osmTest(array $params): Response
     {
-        $http = $this->app->http();
+        $http = $this->app->http((int) $this->app->config->get('osm.overpass_timeout'));
         $checks = [];
         foreach ($this->app->overpassEndpoints() as $url) {
             $checks['Overpass ' . preg_replace('#^https?://#', '', $url)] = function () use ($http, $url): void {
@@ -75,6 +75,9 @@ final class AdminController extends Controller
                 $overpass->fetch(Overpass::query(52.5163, 13.3777, 50));
             };
         }
+        $checks['Photon-Umkreissuche (Fallback)'] = function (): void {
+            $this->app->placeSearch(cacheTtl: 0)->nearby(52.5163, 13.3777, 100);
+        };
         $provider = (string) $this->app->config->get('osm.search_provider');
         $checks['Suche (' . $provider . ')'] = function () use ($http, $provider): void {
             $body = $provider === 'nominatim'
