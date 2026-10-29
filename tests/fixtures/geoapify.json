@@ -1,0 +1,9 @@
+{"type": "FeatureCollection", "features": [
+  {"type": "Feature", "properties": {"name": "Café Müller", "lat": 52.5201, "lon": 13.4052, "street": "Rosenthaler Straße", "housenumber": "12",
+    "categories": ["catering", "catering.cafe"], "distance": 15,
+    "datasource": {"sourcename": "openstreetmap", "raw": {"osm_id": 1001, "osm_type": "n", "amenity": "cafe"}}}},
+  {"type": "Feature", "properties": {"name": "Späti Eck", "lat": 52.52, "lon": 13.405, "categories": ["commercial", "commercial.convenience"],
+    "datasource": {"sourcename": "openstreetmap", "raw": {"osm_id": 1003, "osm_type": "n"}}}},
+  {"type": "Feature", "properties": {"name": "Ohne OSM-Bezug", "lat": 52.5205, "lon": 13.4055, "categories": ["leisure.park"], "datasource": {"sourcename": "other"}}},
+  {"type": "Feature", "properties": {"lat": 52.52, "lon": 13.405, "categories": ["building"]}}
+]}
