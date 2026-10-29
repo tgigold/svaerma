@@ -35,6 +35,10 @@ final class SettingsController extends Controller
             'geoapifyHint' => $key !== '' ? '…' . substr($key, -4) : null,
             'overpassExtra' => (string) $settings->get('overpass_extra_urls', ''),
             'overpassConfigured' => $this->app->configuredOverpassEndpoints(),
+            // Migration 003 may still be pending right after an update.
+            'tokens' => in_array('003_api_tokens', $migrator->applied(), true) ? $this->app->apiTokens()->all() : null,
+            'newToken' => $this->takeNewToken(),
+            'baseUrl' => rtrim((string) $this->app->config->get('base_url'), '/'),
             'version' => App::VERSION,
             'applied' => $migrator->applied(),
             'pending' => $migrator->pending(),
@@ -112,5 +116,33 @@ final class SettingsController extends Controller
     private function extraUrls(string $text): array
     {
         return array_values(array_filter(array_map('trim', preg_split('/\R/', $text) ?: [])));
+    }
+
+    /** @param array<string, string> $params */
+    public function createToken(array $params): Response
+    {
+        $name = mb_substr($this->request->input('name'), 0, 100);
+        if ($name === '') {
+            $this->flash('danger', 'Bitte gib dem Token einen Namen, z. B. „iPhone-Kurzbefehl“.');
+            return $this->redirect('/settings#api');
+        }
+        // Shown exactly once on the next page view, never stored in plain text.
+        $this->app->session()->set('new_token', $this->app->apiTokens()->create($name));
+        return $this->redirect('/settings#api');
+    }
+
+    /** @param array<string, string> $params */
+    public function revokeToken(array $params): Response
+    {
+        $this->app->apiTokens()->revoke((int) $params['id']);
+        $this->flash('success', 'Token widerrufen.');
+        return $this->redirect('/settings#api');
+    }
+
+    private function takeNewToken(): ?string
+    {
+        $token = $this->app->session()->get('new_token');
+        $this->app->session()->remove('new_token');
+        return is_string($token) ? $token : null;
     }
 }

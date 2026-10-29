@@ -14,6 +14,9 @@
 /** @var string $phpVersion */
 /** @var string $sqliteVersion */
 /** @var string $csrf */
+/** @var list<array{id: int, name: string, created_at: string, last_used_at: ?string, revoked_at: ?string}>|null $tokens */
+/** @var string|null $newToken */
+/** @var string $baseUrl */
 $title = 'Einstellungen';
 $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.') . ' KB';
 ?>
@@ -109,6 +112,52 @@ $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.'
 
     <button class="btn btn-primary" type="submit">Speichern</button>
 </form>
+
+<?php if ($tokens !== null): ?>
+<h2 class="h5 mb-3" id="api">API</h2>
+<div class="card mb-4">
+    <div class="card-body">
+        <p class="small text-body-secondary">
+            Für den iOS-Kurzbefehl und andere Clients. Basis-URL: <code><?= e($baseUrl) ?>/api/v1</code>, Header
+            <code>Authorization: Bearer &lt;Token&gt;</code>. Anleitung im README.
+        </p>
+        <?php if ($newToken !== null): ?>
+            <div class="alert alert-success">
+                <p class="mb-2"><strong>Neuer Token – jetzt kopieren, er wird nicht noch einmal angezeigt:</strong></p>
+                <input class="form-control font-monospace" readonly value="<?= e($newToken) ?>" data-select-on-focus aria-label="Neuer API-Token">
+            </div>
+        <?php endif; ?>
+        <form method="post" action="/settings/tokens" class="d-flex gap-2 mb-3">
+            <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+            <input class="form-control" name="name" maxlength="100" placeholder="Name, z. B. iPhone-Kurzbefehl" required aria-label="Name des Tokens">
+            <button class="btn btn-outline-primary text-nowrap" type="submit"><i class="bi bi-key"></i> Erzeugen</button>
+        </form>
+        <?php if ($tokens === []): ?>
+            <p class="small mb-0">Noch keine Tokens.</p>
+        <?php else: ?>
+            <ul class="list-group">
+                <?php foreach ($tokens as $t): ?>
+                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                        <span class="small<?= $t['revoked_at'] !== null ? ' text-body-tertiary text-decoration-line-through' : '' ?>">
+                            <strong><?= e($t['name']) ?></strong><br>
+                            erstellt <?= e(substr($t['created_at'], 0, 10)) ?>,
+                            <?= $t['last_used_at'] !== null ? 'zuletzt genutzt ' . e(substr($t['last_used_at'], 0, 16)) . ' UTC' : 'nie genutzt' ?>
+                        </span>
+                        <?php if ($t['revoked_at'] === null): ?>
+                            <form method="post" action="/settings/tokens/<?= e($t['id']) ?>/revoke" data-confirm="Token „<?= e($t['name']) ?>“ widerrufen? Clients damit funktionieren danach nicht mehr.">
+                                <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+                                <button class="btn btn-outline-danger btn-sm" type="submit">Widerrufen</button>
+                            </form>
+                        <?php else: ?>
+                            <span class="badge text-bg-secondary">widerrufen</span>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <h2 class="h5 mb-3" id="system">System</h2>
 <div class="row g-3">
