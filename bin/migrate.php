@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli') {
 $app = new App\App(App\Config::load());
 $migrator = $app->migrator();
 
-if (in_array('--status', $argv, true)) {
+if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
     echo 'Angewendet: ' . count($migrator->applied()) . "\n";
     foreach ($migrator->pending() as $version) {
         echo "Ausstehend: $version\n";
