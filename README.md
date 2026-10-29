@@ -14,6 +14,7 @@ Live unter `https://checkin.gigold.me`.
 - [Ansichten und URLs](#ansichten-und-urls)
 - [API](#api)
 - [Swarm-Import und Export](#swarm-import-und-export)
+- [PWA (Homescreen)](#pwa-homescreen)
 - [Deployment und Updates](#deployment-und-updates)
 - [Migrationen](#migrationen)
 - [Backup](#backup)
@@ -33,7 +34,7 @@ Es gibt keine Laufzeit-Abhängigkeiten. Composer brauchst du nur für die Dev-To
 ## Verzeichnisstruktur
 
 ```
-public/        Document Root: index.php (Front Controller), .htaccess, assets/
+public/        Document Root: index.php (Front Controller), .htaccess, assets/, manifest.webmanifest, offline.html
 src/           App-Code im Namespace App\ (eigener PSR-4-Autoloader in src/bootstrap.php)
   Http/        Router, Request, Response, Session
   Controller/  ein Controller pro Bereich
@@ -263,6 +264,23 @@ Unter *Einstellungen → Import & Export* (nur eingeloggt):
 
 - `/export.json`: alle Check-ins mit allen Feldern, älteste zuerst
 - `/export.geojson`: GeoJSON-FeatureCollection (RFC 7946, Koordinaten als `[lon, lat]`), direkt nutzbar in QGIS, uMap, geojson.io usw.
+
+## PWA (Homescreen)
+
+svaerma lässt sich als App auf den Homescreen legen:
+
+- **iPhone (Safari):** Teilen → *Zum Home-Bildschirm*.
+- **Android (Chrome):** Menü → *App installieren* bzw. *Zum Startbildschirm hinzufügen*.
+
+Danach startet svaerma ohne Browserleiste (`display: standalone`), mit eigenem Icon und Namen. Die Standortabfrage funktioniert auch im App-Modus. Beim ersten Mal fragt das Gerät noch einmal um Erlaubnis.
+
+**Bausteine:**
+
+- `public/manifest.webmanifest`: Name, Farben, Icons (`public/assets/icons/`, Quelle `icon.svg`, PNGs in 180/192/512 px)
+- `/sw.js`: Service Worker. PHP liefert ihn aus (`PwaController`, Vorlage `templates/pwa/sw.js`), damit der Cache-Name die App-Version enthält (`svaerma-0.7.0`). Ein Update installiert so einen frischen Cache und löscht den alten.
+- `public/offline.html`: eigenständige Seite ohne externe Abhängigkeiten. Sie erscheint, wenn kein Netz da ist.
+
+**Was gecacht wird und was nicht:** Bewusst minimal. Gecacht wird nur die statische App-Hülle: CSS, JS, Icons, Manifest, Offline-Seite. Seiten mit deinen Daten (Verlauf, Detailseiten, Einstellungen), die API, Ortsabfragen, Kartendaten und Exporte gehen immer ins Netz und landen nie im Cache. Nach dem Abmelden liegt also nichts Persönliches auf dem Gerät. Einchecken ohne Netz ist nicht vorgesehen. CDN-Dateien (Bootstrap, Leaflet) und Kartenkacheln verwaltet der Browser selbst.
 
 ## Deployment und Updates
 
