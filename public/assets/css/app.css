@@ -1,0 +1,14 @@
+/* App-specific tweaks on top of Bootstrap. Keep this small. */
+
+.container-narrow {
+  max-width: 32rem;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.token-code {
+  font-family: var(--bs-font-monospace);
+  letter-spacing: 0.05em;
+}
