@@ -12,6 +12,7 @@ use App\Http\Response;
 use App\Http\Router;
 use App\Http\Session;
 use App\Model\Visibility;
+use App\Repository\ApiTokenRepository;
 use App\Repository\CacheRepository;
 use App\Repository\CheckinRepository;
 use App\Repository\LoginAttemptRepository;
@@ -33,7 +34,7 @@ use PDO;
 final class App
 {
     public const NAME = 'svaerma';
-    public const VERSION = '0.4.1';
+    public const VERSION = '0.5.0';
     public const DEFAULT_RADIUS = 150;
     public const DEFAULT_PUBLIC_DELAY = 2; // hours
 
@@ -42,8 +43,19 @@ final class App
     private ?View $view = null;
     private ?Router $router = null;
 
-    public function __construct(public readonly Config $config)
+    /**
+     * @param bool|null $installed whether setup is complete; defaults to "config/config.php exists"
+     *                             (injectable for kernel tests)
+     */
+    public function __construct(
+        public readonly Config $config,
+        private ?bool $installed = null,
+    ) {
+    }
+
+    private function installed(): bool
     {
+        return $this->installed ??= Config::exists();
     }
 
     // ---- Services -------------------------------------------------------
@@ -95,6 +107,11 @@ final class App
     public function migrator(): Migrator
     {
         return new Migrator($this->pdo(), APP_ROOT . '/migrations', $this->backup());
+    }
+
+    public function apiTokens(): ApiTokenRepository
+    {
+        return new ApiTokenRepository($this->pdo());
     }
 
     public function checkins(): CheckinRepository
@@ -245,24 +262,27 @@ final class App
             if ($allowed !== []) {
                 return $this->error($request, 405)->withHeader('Allow', implode(', ', $allowed));
             }
-            return Config::exists() ? $this->error($request, 404) : Response::redirect('/setup');
+            return $this->installed() ? $this->error($request, 404) : Response::redirect('/setup');
         }
         $route = $match['route'];
 
         // Setup routes only exist until config/config.php is written, everything else only after.
         if ($route->option('setup')) {
-            if (Config::exists()) {
+            if ($this->installed()) {
                 return $this->error($request, 404);
             }
-        } elseif (!Config::exists()) {
+        } elseif (!$this->installed()) {
             return Response::redirect('/setup');
+        }
+
+        if ($route->option('api')) {
+            return $this->dispatchApi($request, $route->handler, $match['params']);
         }
 
         $session = $this->session();
         $session->start();
 
-        if ($request->method === 'POST' && !$route->option('api')
-            && !$session->validCsrf($request->input('_csrf'))) {
+        if ($request->method === 'POST' && !$session->validCsrf($request->input('_csrf'))) {
             return $this->error($request, 400, null, 'Das Formular ist abgelaufen. Bitte lade die Seite neu und versuche es nochmal.');
         }
 
@@ -301,6 +321,36 @@ final class App
         [$class, $method] = $route->handler;
         $controller = new $class($this, $request);
         return $controller->$method($match['params']);
+    }
+
+    /**
+     * API requests: bearer token instead of session and CSRF, always JSON.
+     *
+     * @param array{class-string, string} $handler
+     * @param array<string, string> $params
+     */
+    private function dispatchApi(Request $request, array $handler, array $params): Response
+    {
+        if ($this->migrator()->pending() !== []) {
+            return Response::json(['error' => 'Datenbank-Migration ausstehend.'], 503);
+        }
+
+        // Failed token attempts share the login rate limit.
+        $attempts = new LoginAttemptRepository($this->pdo());
+        if ($this->auth()->isLocked($request->ip)) {
+            return Response::json(['error' => 'Zu viele Fehlversuche, bitte später erneut versuchen.'], 429);
+        }
+        $header = (string) $request->header('authorization');
+        $token = preg_match('/^Bearer\s+(\S+)$/i', trim($header), $m) ? $m[1] : '';
+        if ($token === '' || $this->apiTokens()->verify($token) === null) {
+            $attempts->record($request->ip, time());
+            return Response::json(['error' => 'Ungültiger oder fehlender API-Token.'], 401)
+                ->withHeader('WWW-Authenticate', 'Bearer');
+        }
+
+        [$class, $method] = $handler;
+        $controller = new $class($this, $request);
+        return $controller->$method($params);
     }
 
     public function error(Request $request, int $status, ?string $debug = null, ?string $message = null): Response

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controller\AdminController;
+use App\Controller\ApiController;
 use App\Controller\AuthController;
 use App\Controller\CheckinController;
 use App\Controller\PlaceController;
@@ -16,7 +17,7 @@ use App\Http\Router;
  *   guest             => true  readable without login when public mode is on (settings)
  *   guest_redirect    => path  where visitors go instead of the login when public mode is on
  *   setup             => true  only reachable before setup is complete
- *   api               => true  token auth instead of session/CSRF (see API controllers)
+ *   api               => true  bearer token instead of session/CSRF (see App::dispatchApi())
  *   ignore_migrations => true  reachable while migrations are pending
  */
 return static function (Router $r): void {
@@ -41,9 +42,17 @@ return static function (Router $r): void {
 
     $r->get('/settings', [SettingsController::class, 'index'], ['ignore_migrations' => true]);
     $r->post('/settings', [SettingsController::class, 'save']);
+    $r->post('/settings/tokens', [SettingsController::class, 'createToken']);
+    $r->post('/settings/tokens/{id:\d+}/revoke', [SettingsController::class, 'revokeToken']);
 
     $r->get('/admin', [AdminController::class, 'index'], ['ignore_migrations' => true]);
     $r->post('/admin/migrate', [AdminController::class, 'migrate'], ['ignore_migrations' => true]);
     $r->post('/admin/backup', [AdminController::class, 'backup'], ['ignore_migrations' => true]);
     $r->post('/admin/osm-test', [AdminController::class, 'osmTest']);
+
+    // REST API v1 – bearer token from the settings page
+    $r->get('/api/v1/checkins', [ApiController::class, 'listCheckins'], ['api' => true]);
+    $r->post('/api/v1/checkins', [ApiController::class, 'createCheckin'], ['api' => true]);
+    $r->get('/api/v1/checkins/{id:\d+}', [ApiController::class, 'showCheckin'], ['api' => true]);
+    $r->get('/api/v1/places/nearby', [ApiController::class, 'nearbyPlaces'], ['api' => true]);
 };

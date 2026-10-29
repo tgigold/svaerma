@@ -11,9 +11,9 @@ use App\Service\Osm\OsmException;
 use App\Service\Osm\Overpass;
 
 /**
- * JSON endpoints for the check-in page (session-authenticated).
+ * JSON endpoints for the check-in page (session-authenticated); the API reuses its helpers.
  */
-final class PlaceController extends Controller
+class PlaceController extends Controller
 {
     /** @param array<string, string> $params */
     public function nearby(array $params): Response
@@ -52,7 +52,7 @@ final class PlaceController extends Controller
     }
 
     /** @return array{0: float, 1: float}|null */
-    private function coordinates(): ?array
+    protected function coordinates(): ?array
     {
         $lat = filter_var($this->request->query['lat'] ?? null, FILTER_VALIDATE_FLOAT);
         $lon = filter_var($this->request->query['lon'] ?? null, FILTER_VALIDATE_FLOAT);
@@ -68,7 +68,7 @@ final class PlaceController extends Controller
      * @param list<Place> $places
      * @return list<array<string, mixed>>
      */
-    private function withVisits(array $places): array
+    protected function withVisits(array $places): array
     {
         $refs = [];
         foreach ($places as $p) {

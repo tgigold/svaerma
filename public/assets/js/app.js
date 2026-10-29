@@ -8,4 +8,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!window.confirm(form.dataset.confirm)) e.preventDefault();
     });
   });
+
+  // Read-only fields (e.g. a new API token) select their content on focus for easy copying.
+  document.querySelectorAll('[data-select-on-focus]').forEach(function (input) {
+    input.addEventListener('focus', function () { input.select(); });
+  });
 });
