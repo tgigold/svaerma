@@ -7,6 +7,21 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-29
+
+### Behoben
+- Die Umkreissuche funktioniert jetzt auch, wenn Overpass vom Server aus nicht erreichbar ist (live beobachtet: sofortiges HTTP 502 bzw. Timeouts ohne Antwort). In dem Fall springt automatisch die Reverse-Suche von Photon ein. Die Liste ist dann evtl. weniger vollständig, ein Hinweis zeigt das an.
+- Overpass wird jetzt per GET statt POST abgefragt, außerdem schickt curl kein `Expect: 100-continue` mehr mit. Beides bringt manche ausgehenden Proxys beim Hoster durcheinander.
+
+### Hinzugefügt
+- Ist Overpass komplett ausgefallen, wird es für 5 Minuten übersprungen, statt bei jeder Suche erneut auf den Timeout zu warten.
+- Eigener, kürzerer Timeout für Overpass (`osm.overpass_timeout`, 12 s pro Endpunkt) sowie die Config-Option `osm.photon_reverse_url`.
+- Fehlermeldungen von OSM-Diensten nennen jetzt die Ziel-IP und den Anfang der Fehlerseite. Daran erkennt man, ob ein Fehler vom Dienst selbst oder von einem Proxy unterwegs kommt.
+- **OSM-Verbindung testen** prüft zusätzlich die Photon-Umkreissuche.
+
+### Geändert
+- Der allgemeine OSM-Timeout liegt wieder bei 15 s.
+
 ## [0.2.1] - 2026-10-29
 
 ### Behoben
@@ -50,7 +65,8 @@ und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - GitHub Action: Lint, PHPUnit und PHPStan, danach Deploy per FTPS bei Push auf `main`.
 - Tests für Migrator, Router und Auth.
 
-[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/tgigold/svaerma/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/tgigold/svaerma/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/tgigold/svaerma/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tgigold/svaerma/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tgigold/svaerma/releases/tag/v0.1.0

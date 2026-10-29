@@ -17,7 +17,10 @@ final class Overpass
 {
     public const MIN_RADIUS = 10;
     public const MAX_RADIUS = 1000;
-    private const QUERY_TIMEOUT = 20;
+    private const QUERY_TIMEOUT = 10;
+    /** After a total failure Overpass is skipped for this long (seconds). */
+    public const COOLDOWN = 300;
+    public const COOLDOWN_KEY = 'overpass:cooldown';
 
     /** @param list<string> $endpoints */
     public function __construct(
@@ -37,7 +40,16 @@ final class Overpass
 
         $json = $this->cache->get($key);
         if ($json === null) {
-            $json = $this->fetch(self::query($lat, $lon, $radius));
+            $cooldown = $this->cache->get(self::COOLDOWN_KEY);
+            if ($cooldown !== null) {
+                throw new OsmException('kurz zuvor nicht erreichbar (' . $cooldown . '), nächster Versuch in höchstens ' . (self::COOLDOWN / 60) . ' min');
+            }
+            try {
+                $json = $this->fetch(self::query($lat, $lon, $radius));
+            } catch (OsmException $e) {
+                $this->cache->set(self::COOLDOWN_KEY, gmdate('H:i') . ' UTC', self::COOLDOWN);
+                throw $e;
+            }
             // Only valid, complete answers are cached.
             $this->cache->set($key, $json, $this->ttl);
         }
@@ -57,7 +69,9 @@ final class Overpass
         $errors = [];
         foreach ($this->endpoints as $endpoint) {
             try {
-                $json = $this->http->post($endpoint, ['data' => $query]);
+                // GET instead of POST: the query is short, and some hosts' outbound
+                // proxies mishandle POST requests (observed: instant 502 / no response).
+                $json = $this->http->get($endpoint, ['data' => $query]);
                 self::validate($json);
                 return $json;
             } catch (OsmException $e) {

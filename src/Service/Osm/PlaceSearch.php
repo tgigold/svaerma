@@ -19,6 +19,7 @@ final class PlaceSearch
         private CacheRepository $cache,
         private string $provider,
         private string $photonUrl,
+        private string $photonReverseUrl,
         private string $nominatimUrl,
         private Throttle $nominatimThrottle,
         private int $ttl,
@@ -64,16 +65,53 @@ final class PlaceSearch
     }
 
     /**
+     * Places near a coordinate via Photon's reverse geocoding – the fallback when
+     * Overpass is unavailable. Less complete than Overpass, but needs only a GET.
+     *
+     * @return list<Place> sorted by distance, within $radius metres
+     */
+    public function nearby(float $lat, float $lon, int $radius): array
+    {
+        $key = sprintf('photon-reverse:%.4f,%.4f,%d', $lat, $lon, $radius);
+        $json = $this->cache->remember($key, $this->ttl, fn (): string => $this->http->get($this->photonReverseUrl, [
+            'lat' => round($lat, 6),
+            'lon' => round($lon, 6),
+            'radius' => round($radius / 1000, 3), // km
+            'limit' => 50,
+            'lang' => 'de',
+        ]));
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            throw new OsmException('Photon hat keine gültige Antwort geliefert.');
+        }
+
+        $places = [];
+        foreach (self::parsePhoton($data, onlyPlaces: true) as $place) {
+            $distance = Geo::distance($lat, $lon, $place->lat, $place->lon);
+            if ($distance <= $radius) {
+                $places[$place->osmType . '/' . $place->osmId] ??= $place->withDistance($distance);
+            }
+        }
+        $places = array_values($places);
+        usort($places, static fn (Place $a, Place $b): int => $a->distance <=> $b->distance);
+        return $places;
+    }
+
+    /**
      * @param array<mixed> $data Photon GeoJSON
+     * @param bool $onlyPlaces skip streets, houses etc. (see Categories::matches())
      * @return list<Place>
      */
-    public static function parsePhoton(array $data): array
+    public static function parsePhoton(array $data, bool $onlyPlaces = false): array
     {
         $places = [];
         foreach ($data['features'] ?? [] as $f) {
             $props = $f['properties'] ?? [];
             $coords = $f['geometry']['coordinates'] ?? null;
             if (!isset($props['name']) || !is_array($coords) || count($coords) < 2) {
+                continue;
+            }
+            if ($onlyPlaces && !Categories::matches([(string) ($props['osm_key'] ?? '') => (string) ($props['osm_value'] ?? '')])) {
                 continue;
             }
             $type = self::TYPES[$props['osm_type'] ?? ''] ?? null;

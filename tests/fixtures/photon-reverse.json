@@ -1,0 +1,12 @@
+{"type": "FeatureCollection", "features": [
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.40520, 52.52010]},
+   "properties": {"osm_type": "N", "osm_id": 1001, "osm_key": "amenity", "osm_value": "cafe", "name": "Café Müller", "street": "Rosenthaler Straße", "housenumber": "12", "city": "Berlin"}},
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.40500, 52.52000]},
+   "properties": {"osm_type": "W", "osm_id": 7, "osm_key": "highway", "osm_value": "secondary", "name": "Rosenthaler Straße", "city": "Berlin"}},
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.40500, 52.52000]},
+   "properties": {"osm_type": "W", "osm_id": 8, "osm_key": "building", "osm_value": "yes", "housenumber": "10", "street": "Rosenthaler Straße"}},
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.40501, 52.52001]},
+   "properties": {"osm_type": "N", "osm_id": 1003, "osm_key": "shop", "osm_value": "kiosk", "name": "Späti Eck"}},
+  {"type": "Feature", "geometry": {"type": "Point", "coordinates": [13.41500, 52.52000]},
+   "properties": {"osm_type": "N", "osm_id": 1009, "osm_key": "amenity", "osm_value": "restaurant", "name": "Zu weit weg"}}
+]}

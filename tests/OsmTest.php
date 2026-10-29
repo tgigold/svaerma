@@ -91,7 +91,8 @@ final class OsmTest extends TestCase
                 ? '{"elements": [], "remark": "runtime error: Query timed out in \"query\" at line 2 after 20 seconds."}'
                 : $this->fixture('overpass');
         });
-        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60);
+        $cache = new CacheRepository($this->migratedPdo());
+        $overpass = new Overpass($http, $cache, ['https://overpass.test/api'], 60);
 
         try {
             $overpass->nearby(52.52, 13.405, 150);
@@ -99,6 +100,7 @@ final class OsmTest extends TestCase
         } catch (OsmException $e) {
             self::assertStringContainsString('timed out', $e->getMessage());
         }
+        $cache->set(Overpass::COOLDOWN_KEY, '', -1); // end the cooldown
         self::assertCount(4, $overpass->nearby(52.52, 13.405, 150), 'Second call hits the API again');
     }
 
@@ -122,7 +124,7 @@ final class OsmTest extends TestCase
     public function testPhotonParsing(): void
     {
         $http = new FakeHttpClient($this->fixture('photon'));
-        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'photon', 'https://photon.test/api', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.0), 60);
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'photon', 'https://photon.test/api', 'https://photon.test/reverse', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.0), 60);
 
         $places = $search->search('Brandenburger', 52.5163, 13.3777);
 
@@ -141,7 +143,7 @@ final class OsmTest extends TestCase
     public function testNominatimParsingAndThrottle(): void
     {
         $http = new FakeHttpClient($this->fixture('nominatim'));
-        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'nominatim', 'https://photon.test/api', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.3), 60);
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'nominatim', 'https://photon.test/api', 'https://photon.test/reverse', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.3), 60);
 
         $start = microtime(true);
         $places = $search->search('Brandenburger Tor');
@@ -156,9 +158,56 @@ final class OsmTest extends TestCase
     public function testShortQueriesDoNotHitTheNetwork(): void
     {
         $http = new FakeHttpClient('[]');
-        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'photon', 'p', 'n', new Throttle($this->tempDir() . '/t', 0.0), 60);
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'photon', 'p', 'r', 'n', new Throttle($this->tempDir() . '/t', 0.0), 60);
         self::assertSame([], $search->search(' a '));
         self::assertSame([], $http->requests);
+    }
+
+    public function testOverpassUsesGet(): void
+    {
+        $http = new FakeHttpClient('{"elements": []}');
+        (new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://overpass.test/api'], 60))->nearby(52.5, 13.4, 100);
+        self::assertSame('GET', $http->requests[0]['method']);
+    }
+
+    public function testCooldownSkipsOverpassAfterFailure(): void
+    {
+        $http = new FakeHttpClient(static fn (): string => throw new OsmException('HTTP 502'));
+        $overpass = new Overpass($http, new CacheRepository($this->migratedPdo()), ['https://a.test/api', 'https://b.test/api'], 60);
+
+        try {
+            $overpass->nearby(52.52, 13.405, 150);
+        } catch (OsmException) {
+        }
+        self::assertCount(2, $http->requests);
+
+        try {
+            $overpass->nearby(48.1, 11.5, 150);
+            self::fail('Expected cooldown exception');
+        } catch (OsmException $e) {
+            self::assertStringContainsString('kurz zuvor nicht erreichbar', $e->getMessage());
+        }
+        self::assertCount(2, $http->requests, 'No new requests during the cooldown');
+
+        // The diagnostics path (fetch) ignores the cooldown.
+        try {
+            $overpass->fetch('x');
+        } catch (OsmException) {
+        }
+        self::assertCount(4, $http->requests);
+    }
+
+    public function testPhotonReverseFiltersAndSorts(): void
+    {
+        $http = new FakeHttpClient($this->fixture('photon-reverse'));
+        $search = new PlaceSearch($http, new CacheRepository($this->migratedPdo()), 'nominatim', 'https://photon.test/api', 'https://photon.test/reverse', 'https://nominatim.test/search', new Throttle($this->tempDir() . '/t', 0.0), 60);
+
+        $places = $search->nearby(52.52, 13.405, 150);
+
+        self::assertSame(['Späti Eck', 'Café Müller'], array_map(fn ($p) => $p->name, $places), 'Streets, unnamed buildings and far places are dropped');
+        self::assertSame('https://photon.test/reverse', $http->requests[0]['url'], 'Reverse always uses Photon, even if search uses Nominatim');
+        self::assertSame(0.15, $http->requests[0]['data']['radius']);
+        self::assertSame('Kiosk', $places[0]->category);
     }
 
     public function testDistance(): void

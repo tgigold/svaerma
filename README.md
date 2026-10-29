@@ -88,6 +88,8 @@ Wichtig: In die oberste `.htaccess` gehört **kein** `Require all denied`. Apach
 | `contact_email` | Kontakt im User-Agent für Overpass, Photon und Nominatim |
 | `timezone` | Standard-Zeitzone für die Anzeige |
 | `osm.overpass_url` | Overpass-Endpunkt für Orte in der Nähe |
+| `osm.overpass_timeout` | Timeout pro Overpass-Endpunkt in Sekunden (Standard: 12), danach greift der Fallback |
+| `osm.photon_reverse_url` | Photon-Reverse-Endpunkt: Umkreissuche, wenn Overpass ausfällt |
 | `osm.overpass_fallback_urls` | Liste weiterer Overpass-Instanzen, die bei Fehlern der Reihe nach versucht werden (`[]` = keine) |
 | `osm.search_provider` | `photon` (Standard) oder `nominatim` für die Namenssuche |
 | `osm.photon_url`, `osm.nominatim_url` | Endpunkte der Namenssuche |
@@ -101,6 +103,7 @@ Alles, was du im Alltag änderst (z. B. den Suchradius), liegt unter **Einstellu
 
 1. Die Startseite fragt den Standort per Browser-Geolocation ab. Das geht nur über HTTPS und nur mit deiner Erlaubnis.
 2. Der Server fragt bei **Overpass** alle benannten Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*). Er filtert sie nach Kategorie und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
+   Ist Overpass nicht erreichbar, übernimmt die **Reverse-Suche von Photon**. Diese Liste ist weniger vollständig, ein Hinweis zeigt das an. Nach einem kompletten Overpass-Ausfall wird Overpass 5 Minuten lang übersprungen.
 3. Ist das GPS ungenauer als der Radius, wird bis zur Messgenauigkeit gesucht, maximal 1000 m. **Umkreis erweitern** verdoppelt den Radius.
 4. Fallback ist die **Namenssuche** über Photon (oder Nominatim), mit deinem Standort als Gewichtung.
 5. Mit **Eigener Ort** checkst du mit freiem Namen an deinem aktuellen Standort ein.
