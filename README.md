@@ -105,7 +105,7 @@ Alles, was du im Alltag änderst (Suchradius, öffentlicher Modus, Geoapify-Key)
 
 1. Die Startseite fragt den Standort per Browser-Geolocation ab. Das geht nur über HTTPS und nur mit deiner Erlaubnis.
 2. Der Server fragt bei **Overpass** alle benannten Objekte im Umkreis ab (Standard: 150 m, einstellbar unter *Einstellungen*). Er filtert sie nach Kategorie und sortiert sie nach Entfernung. Berücksichtigt werden `amenity`, `shop`, `tourism`, `leisure`, `historic`, `craft`, `office`, `healthcare`, `sport`, Bahnhöfe, Flughäfen, Gipfel und einige mehr. Offensichtlicher Kleinkram wie Bänke, Mülleimer oder Briefkästen fliegt raus. Die Liste steht in `src/Service/Osm/Categories.php`.
-   Ist Overpass nicht erreichbar, greift die Fallback-Kette: zuerst **Geoapify** (nur mit API-Key), dann die **Reverse-Suche von Photon**. Ein Hinweis zeigt an, woher die Liste stammt. Nach einem kompletten Overpass-Ausfall wird Overpass 5 Minuten lang übersprungen.
+   Ist Overpass nicht erreichbar (auch keiner der weiteren Endpunkte aus Config und Einstellungen), fragt die App **Geoapify** (nur mit API-Key, Places API) und die **Reverse-Suche von Photon** ab und führt beide Listen zusammen. Duplikate werden entfernt: gleiches OSM-Objekt, oder gleicher Name innerhalb von 40 m. Ein Hinweis zeigt an, woher die Liste stammt. Nach einem kompletten Overpass-Ausfall wird Overpass 5 Minuten lang übersprungen.
 3. Ist das GPS ungenauer als der Radius, wird bis zur Messgenauigkeit gesucht, maximal 1000 m. **Umkreis erweitern** verdoppelt den Radius.
 4. Fallback ist die **Namenssuche** über Photon (oder Nominatim), mit deinem Standort als Gewichtung.
 5. Mit **Eigener Ort** checkst du mit freiem Namen an deinem aktuellen Standort ein.
@@ -138,7 +138,7 @@ Unter *Einstellungen → Öffentlich* lassen sich **Verlauf, Karte und Detailsei
 - **Verzögerung**: Check-ins werden erst nach X Stunden öffentlich (Standard: 2), damit niemand live sieht, wo du gerade bist.
 - **Notizen** und **eigene Orte** (ohne OSM-Bezug, z. B. „Bei Oma“) lassen sich einzeln ausblenden.
 
-Gäste sehen keine Bearbeiten-, Lösch- oder Einchecken-Funktionen. Die Startseite `/` leitet sie zum Login. Technisch sind die betroffenen Routen in `src/routes.php` mit `'guest' => true` markiert. Was Gäste sehen, regelt `App\Model\Visibility` im `CheckinRepository`.
+Gäste sehen keine Bearbeiten-, Lösch- oder Einchecken-Funktionen. Die Startseite `/` leitet sie in den Verlauf, zum Login geht es oben rechts. Technisch sind die betroffenen Routen in `src/routes.php` mit `'guest' => true` markiert. Was Gäste sehen, regelt `App\Model\Visibility` im `CheckinRepository`.
 
 Uhrzeiten werden in der **Ortszeit des Check-ins** angezeigt. Ein Check-in in Tokio um 12:00 bleibt also 12:00, auch wenn du die Liste in Berlin ansiehst.
 

@@ -8,6 +8,7 @@ use App\Repository\CacheRepository;
 use App\Service\Osm\Categories;
 use App\Service\Osm\Geoapify;
 use App\Service\Osm\NearbySearch;
+use App\Model\Place;
 use App\Service\Osm\Geo;
 use App\Service\Osm\OsmException;
 use App\Service\Osm\Overpass;
@@ -227,25 +228,52 @@ final class OsmTest extends TestCase
         self::assertSame('KEY', $http->requests[0]['data']['apiKey']);
     }
 
-    public function testNearbySearchFallsThroughProviders(): void
+    public function testNearbySearchUsesPrimaryWhenItAnswers(): void
+    {
+        $calls = [];
+        $search = new NearbySearch([
+            'overpass' => static function () use (&$calls): array {
+                $calls[] = 'overpass';
+                return [];
+            },
+            'photon' => static function () use (&$calls): array {
+                $calls[] = 'photon';
+                return [new Place('X', 1.0, 1.0)];
+            },
+        ], static function (): void {
+        });
+
+        $result = $search->find(1.0, 1.0, 100);
+        self::assertSame('overpass', $result['source']);
+        self::assertSame([], $result['places'], 'An empty Overpass answer is a real answer');
+        self::assertNull($result['notice']);
+        self::assertSame(['overpass'], $calls, 'Fallbacks are not asked');
+    }
+
+    public function testNearbySearchMergesAllFallbacks(): void
     {
         $logged = [];
         $search = new NearbySearch([
             'overpass' => static fn (): array => throw new OsmException('HTTP 502'),
-            'geoapify' => static fn (): array => throw new OsmException('HTTP 401'),
-            'photon' => static fn (): array => [new \App\Model\Place('X', 1.0, 1.0)],
+            'geoapify' => static fn (): array => [
+                new Place('Café Müller', 52.5201, 13.4052, 'node', 1001, 'Café', null, 15.0),
+            ],
+            'broken' => static fn (): array => throw new OsmException('HTTP 401'),
+            'photon' => static fn (): array => [
+                new Place('Café Müller', 52.5201, 13.4052, 'node', 1001, null, null, 15.0), // same OSM object
+                new Place('Späti Eck', 52.52, 13.405, 'node', 1003, null, null, 2.0),
+                new Place('café müller', 52.52012, 13.40522, null, null, null, null, 16.0), // same name, 2 m away
+            ],
         ], function (string $m) use (&$logged): void {
             $logged[] = $m;
         });
 
-        $result = $search->find(1.0, 1.0, 100);
-        self::assertSame('photon', $result['source']);
-        self::assertNotNull($result['notice']);
-        self::assertSame(['Overpass: HTTP 502', 'Geoapify: HTTP 401'], $logged);
-
-        $ok = (new NearbySearch(['overpass' => static fn (): array => []], static function (): void {
-        }))->find(1.0, 1.0, 100);
-        self::assertNull($ok['notice'], 'No notice when the primary source answers');
+        $result = $search->find(52.52, 13.405, 150);
+        self::assertSame('geoapify+photon', $result['source']);
+        self::assertSame(['Späti Eck', 'Café Müller'], array_map(fn (Place $p) => $p->name, $result['places']));
+        self::assertSame('Café', $result['places'][1]->category, 'First source wins for duplicates');
+        self::assertStringContainsString('Geoapify und Photon', (string) $result['notice']);
+        self::assertSame(['Overpass: HTTP 502', 'Broken: HTTP 401'], $logged);
     }
 
     public function testNearbySearchReportsAllFailures(): void

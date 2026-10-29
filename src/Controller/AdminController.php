@@ -60,17 +60,18 @@ final class AdminController extends Controller
         $http = $this->app->http((int) $this->app->config->get('osm.overpass_timeout'));
         $checks = [];
         foreach ($this->app->overpassEndpoints() as $url) {
-            $checks['Overpass ' . preg_replace('#^https?://#', '', $url)] = function () use ($http, $url): void {
+            $checks['Overpass ' . preg_replace('#^https?://#', '', $url)] = function () use ($http, $url): int {
                 $overpass = new Overpass($http, new CacheRepository($this->app->pdo()), [$url], 0);
-                $overpass->fetch(Overpass::query(52.5163, 13.3777, 50));
+                $json = $overpass->fetch(Overpass::query(52.5163, 13.3777, 100));
+                return count(Overpass::parse(json_decode($json, true)['elements'] ?? [], 52.5163, 13.3777));
             };
         }
-        $checks['Photon-Umkreissuche (Fallback)'] = function (): void {
-            $this->app->placeSearch(cacheTtl: 0)->nearby(52.5163, 13.3777, 100);
+        $checks['Photon-Umkreissuche (Fallback)'] = function (): int {
+            return count($this->app->placeSearch(cacheTtl: 0)->nearby(52.5163, 13.3777, 100));
         };
         $geoapify = $this->app->geoapify();
         if ($geoapify !== null) {
-            $checks['Geoapify'] = static fn () => $geoapify->nearby(52.5163, 13.3777, 100);
+            $checks['Geoapify'] = static fn (): int => count($geoapify->nearby(52.5163, 13.3777, 100));
         }
         $provider = (string) $this->app->config->get('osm.search_provider');
         $checks['Suche (' . $provider . ')'] = function () use ($http, $provider): void {
@@ -85,8 +86,13 @@ final class AdminController extends Controller
         foreach ($checks as $name => $check) {
             $start = microtime(true);
             try {
-                $check();
-                $this->flash('success', sprintf('%s: OK (%d ms)', $name, (microtime(true) - $start) * 1000));
+                $found = $check();
+                $this->flash('success', sprintf(
+                    '%s: OK%s (%d ms)',
+                    $name,
+                    is_int($found) ? ", $found Orte am Brandenburger Tor" : '',
+                    (microtime(true) - $start) * 1000,
+                ));
             } catch (OsmException $e) {
                 $this->flash('danger', sprintf('%s: %s (%d ms)', $name, $e->getMessage(), (microtime(true) - $start) * 1000));
             }

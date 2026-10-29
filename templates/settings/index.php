@@ -4,6 +4,8 @@
 /** @var int $maxRadius */
 /** @var array{enabled: bool, limit: string, delay: int, notes: bool, manual: bool} $public */
 /** @var string|null $geoapifyHint */
+/** @var string $overpassExtra */
+/** @var list<string> $overpassConfigured */
 /** @var string $version */
 /** @var list<string> $applied */
 /** @var list<string> $pending */
@@ -81,6 +83,14 @@ $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.'
     <div class="card mb-3">
         <div class="card-body">
             <h2 class="h6 card-title">Ortsdienste</h2>
+            <label class="form-label" for="overpass_extra_urls">Weitere Overpass-Endpunkte</label>
+            <textarea class="form-control font-monospace small mb-1" id="overpass_extra_urls" name="overpass_extra_urls" rows="2"
+                      spellcheck="false" placeholder="https://example.org/api/interpreter"><?= e($overpassExtra) ?></textarea>
+            <div class="form-text mb-3">
+                Einer pro Zeile, werden nach diesen versucht:
+                <?php foreach ($overpassConfigured as $i => $url): ?><?= $i > 0 ? ', ' : '' ?><code><?= e(preg_replace('#^https://#', '', $url)) ?></code><?php endforeach; ?>.
+                Danach folgen Geoapify und Photon, deren Ergebnisse zusammengeführt werden.
+            </div>
             <label class="form-label" for="geoapify_key">Geoapify-API-Key (optional)</label>
             <input class="form-control mb-1" id="geoapify_key" name="geoapify_key" autocomplete="off" spellcheck="false"
                    placeholder="<?= e($geoapifyHint !== null ? 'gesetzt (' . $geoapifyHint . ') – leer lassen = unverändert' : 'nicht gesetzt') ?>">

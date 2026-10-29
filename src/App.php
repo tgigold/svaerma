@@ -33,7 +33,7 @@ use PDO;
 final class App
 {
     public const NAME = 'svaerma';
-    public const VERSION = '0.4.0';
+    public const VERSION = '0.4.1';
     public const DEFAULT_RADIUS = 150;
     public const DEFAULT_PUBLIC_DELAY = 2; // hours
 
@@ -182,11 +182,26 @@ final class App
         return new NearbySearch($providers, fn (string $msg) => $this->log($msg));
     }
 
-    /** @return list<string> */
-    public function overpassEndpoints(): array
+    /** @return list<string> Overpass endpoints from config.php, in order */
+    public function configuredOverpassEndpoints(): array
     {
         $fallbacks = $this->config->get('osm.overpass_fallback_urls', []);
-        $urls = [(string) $this->config->get('osm.overpass_url'), ...(is_array($fallbacks) ? $fallbacks : [])];
+        return self::urlList([(string) $this->config->get('osm.overpass_url'), ...(is_array($fallbacks) ? $fallbacks : [])]);
+    }
+
+    /** @return list<string> configured endpoints followed by those entered in the settings */
+    public function overpassEndpoints(): array
+    {
+        $extra = preg_split('/\s+/', (string) $this->settings()->get('overpass_extra_urls', '')) ?: [];
+        return self::urlList([...$this->configuredOverpassEndpoints(), ...$extra]);
+    }
+
+    /**
+     * @param array<mixed> $urls
+     * @return list<string>
+     */
+    private static function urlList(array $urls): array
+    {
         return array_values(array_unique(array_filter(array_map('strval', $urls))));
     }
 
@@ -254,6 +269,9 @@ final class App
         if (!$route->option('public') && !$route->option('setup')) {
             $loggedIn = $this->auth()->check();
             // Routes marked "guest" are readable without login when public mode is on.
+            if (!$loggedIn && $route->option('guest_redirect') && $this->publicEnabled()) {
+                return Response::redirect((string) $route->option('guest_redirect'));
+            }
             if (!$loggedIn && !($route->option('guest') && $this->publicEnabled())) {
                 if ($request->wantsJson()) {
                     return Response::json(['error' => 'Nicht angemeldet.'], 401);
