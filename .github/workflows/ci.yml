@@ -1,0 +1,69 @@
+name: CI & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_sqlite, intl, mbstring
+          coverage: none
+
+      - name: Install dev tools
+        run: composer install --no-interaction --no-progress
+
+      - name: Lint
+        run: find src public bin migrations templates tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Uploads only files tracked in git. Runtime files on the server
+      # (config/config.php, data/*) are not in the repo and are never touched:
+      # the action only deletes files it uploaded itself.
+      - name: Deploy via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            tests/**
+            vendor/**
+            composer.json
+            composer.lock
+            phpunit.xml
+            phpstan.neon
+            config/config.php
+            data/*.sqlite
+            data/backups/**
+            data/sessions/**
+            data/logs/**
+            data/imports/**
