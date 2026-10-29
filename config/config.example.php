@@ -22,6 +22,7 @@ return [
     'osm' => [
         'overpass_url' => 'https://overpass-api.de/api/interpreter',
         'overpass_fallback_urls' => [], // more can also be added in the app settings
+        'overpass_ch_url' => 'https://api.overpass.ch/v1/interpreter', // used with the key from the settings
         'photon_url' => 'https://photon.komoot.io/api/',
         'photon_reverse_url' => 'https://photon.komoot.io/reverse', // nearby fallback when Overpass fails
         'geoapify_url' => 'https://api.geoapify.com/v2/places',     // used only with an API key (settings)

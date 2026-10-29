@@ -34,7 +34,7 @@ use PDO;
 final class App
 {
     public const NAME = 'svaerma';
-    public const VERSION = '0.5.0';
+    public const VERSION = '0.5.1';
     public const DEFAULT_RADIUS = 150;
     public const DEFAULT_PUBLIC_DELAY = 2; // hours
 
@@ -206,11 +206,25 @@ final class App
         return self::urlList([(string) $this->config->get('osm.overpass_url'), ...(is_array($fallbacks) ? $fallbacks : [])]);
     }
 
-    /** @return list<string> configured endpoints followed by those entered in the settings */
+    /**
+     * All Overpass endpoints in the order they are tried: overpass.ch (if a key is set),
+     * then config.php, then the extra URLs from the settings.
+     *
+     * @return list<array{url: string, label: string, headers?: array<string, string>}>
+     */
     public function overpassEndpoints(): array
     {
+        $endpoints = [];
+        $key = trim((string) $this->settings()->get('overpass_ch_key', ''));
+        if ($key !== '') {
+            // Key in a header, never in the URL, so it cannot leak into logs or messages.
+            $endpoints[] = ['url' => (string) $this->config->get('osm.overpass_ch_url'), 'label' => 'overpass.ch', 'headers' => ['X-API-Key' => $key]];
+        }
         $extra = preg_split('/\s+/', (string) $this->settings()->get('overpass_extra_urls', '')) ?: [];
-        return self::urlList([...$this->configuredOverpassEndpoints(), ...$extra]);
+        foreach (self::urlList([...$this->configuredOverpassEndpoints(), ...$extra]) as $url) {
+            $endpoints[] = ['url' => $url, 'label' => (string) (parse_url($url, PHP_URL_HOST) ?: $url)];
+        }
+        return $endpoints;
     }
 
     /**
@@ -317,6 +331,7 @@ final class App
         $this->view()->share('loggedIn', !$route->option('setup') && $this->auth()->check());
         $this->view()->share('publicNav', !$route->option('setup') && $this->publicEnabled());
         $this->view()->share('geoapifyActive', !$route->option('setup') && $this->settings()->get('geoapify_key', '') !== '');
+        $this->view()->share('overpassChActive', !$route->option('setup') && $this->settings()->get('overpass_ch_key', '') !== '');
 
         [$class, $method] = $route->handler;
         $controller = new $class($this, $request);

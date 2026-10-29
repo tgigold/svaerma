@@ -32,7 +32,8 @@ final class SettingsController extends Controller
                 'notes' => $settings->get('public_notes', '1') === '1',
                 'manual' => $settings->get('public_manual', '1') === '1',
             ],
-            'geoapifyHint' => $key !== '' ? '…' . substr($key, -4) : null,
+            'geoapifyHint' => self::hint($key),
+            'overpassChHint' => self::hint((string) $settings->get('overpass_ch_key', '')),
             'overpassExtra' => (string) $settings->get('overpass_extra_urls', ''),
             'overpassConfigured' => $this->app->configuredOverpassEndpoints(),
             // Migration 003 may still be pending right after an update.
@@ -80,6 +81,11 @@ final class SettingsController extends Controller
             $errors[] = 'Der Geoapify-Key sieht ungültig aus.';
         }
 
+        $overpassChKey = $in->input('overpass_ch_key');
+        if ($overpassChKey !== '' && !preg_match('/^[A-Za-z0-9_-]{16,128}$/', $overpassChKey)) {
+            $errors[] = 'Der overpass.ch-Key sieht ungültig aus.';
+        }
+
         $extra = $this->extraUrls($in->input('overpass_extra_urls'));
         foreach ($extra as $url) {
             if (!preg_match('#^https://[a-z0-9.-]+(:\d+)?(/[^\s]*)?$#i', $url)) {
@@ -102,6 +108,11 @@ final class SettingsController extends Controller
         $settings->set('public_notes', $in->input('public_notes') === '1' ? '1' : '0');
         $settings->set('public_manual', $in->input('public_manual') === '1' ? '1' : '0');
         $settings->set('overpass_extra_urls', implode("\n", $extra));
+        if ($in->input('overpass_ch_remove') === '1') {
+            $settings->set('overpass_ch_key', '');
+        } elseif ($overpassChKey !== '') {
+            $settings->set('overpass_ch_key', $overpassChKey);
+        }
         if ($in->input('geoapify_remove') === '1') {
             $settings->set('geoapify_key', '');
         } elseif ($key !== '') {
@@ -137,6 +148,12 @@ final class SettingsController extends Controller
         $this->app->apiTokens()->revoke((int) $params['id']);
         $this->flash('success', 'Token widerrufen.');
         return $this->redirect('/settings#api');
+    }
+
+    /** Last characters of a secret, enough to recognise it. */
+    private static function hint(string $secret): ?string
+    {
+        return $secret !== '' ? '…' . substr($secret, -4) : null;
     }
 
     private function takeNewToken(): ?string

@@ -26,9 +26,13 @@ final class FakeHttpClient extends HttpClient
             : \Closure::fromCallable($response);
     }
 
-    public function get(string $url, array $query = []): string
+    /** @var list<array<string, string>> */
+    public array $headers = [];
+
+    public function get(string $url, array $query = [], array $headers = []): string
     {
         $this->requests[] = ['method' => 'GET', 'url' => $url, 'data' => $query];
+        $this->headers[] = $headers;
         return ($this->responder)($url);
     }
 

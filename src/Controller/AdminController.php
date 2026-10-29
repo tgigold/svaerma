@@ -59,9 +59,9 @@ final class AdminController extends Controller
     {
         $http = $this->app->http((int) $this->app->config->get('osm.overpass_timeout'));
         $checks = [];
-        foreach ($this->app->overpassEndpoints() as $url) {
-            $checks['Overpass ' . preg_replace('#^https?://#', '', $url)] = function () use ($http, $url): int {
-                $overpass = new Overpass($http, new CacheRepository($this->app->pdo()), [$url], 0);
+        foreach ($this->app->overpassEndpoints() as $endpoint) {
+            $checks['Overpass ' . $endpoint['label']] = function () use ($http, $endpoint): int {
+                $overpass = new Overpass($http, new CacheRepository($this->app->pdo()), [$endpoint], 0);
                 $json = $overpass->fetch(Overpass::query(52.5163, 13.3777, 100));
                 return count(Overpass::parse(json_decode($json, true)['elements'] ?? [], 52.5163, 13.3777));
             };

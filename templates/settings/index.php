@@ -4,6 +4,7 @@
 /** @var int $maxRadius */
 /** @var array{enabled: bool, limit: string, delay: int, notes: bool, manual: bool} $public */
 /** @var string|null $geoapifyHint */
+/** @var string|null $overpassChHint */
 /** @var string $overpassExtra */
 /** @var list<string> $overpassConfigured */
 /** @var string $version */
@@ -86,11 +87,26 @@ $kb = static fn (int $bytes): string => number_format($bytes / 1024, 0, ',', '.'
     <div class="card mb-3">
         <div class="card-body">
             <h2 class="h6 card-title">Ortsdienste</h2>
+            <label class="form-label" for="overpass_ch_key">overpass.ch-API-Key (optional, empfohlen)</label>
+            <input class="form-control mb-1" id="overpass_ch_key" name="overpass_ch_key" autocomplete="off" spellcheck="false"
+                   placeholder="<?= e($overpassChHint !== null ? 'gesetzt (' . $overpassChHint . ') – leer lassen = unverändert' : 'nicht gesetzt') ?>">
+            <div class="form-text mb-2">
+                Gehostetes Overpass mit weltweiten Daten, kostenlos bis 10.000 Abfragen/Monat. Wird als Erstes gefragt.
+                Key unter <a href="https://overpass.ch/" rel="noopener" target="_blank">overpass.ch</a> → API-Schlüssel.
+            </div>
+            <?php if ($overpassChHint !== null): ?>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="overpass_ch_remove" name="overpass_ch_remove" value="1">
+                    <label class="form-check-label" for="overpass_ch_remove">Key entfernen</label>
+                </div>
+            <?php else: ?>
+                <div class="mb-3"></div>
+            <?php endif; ?>
             <label class="form-label" for="overpass_extra_urls">Weitere Overpass-Endpunkte</label>
             <textarea class="form-control font-monospace small mb-1" id="overpass_extra_urls" name="overpass_extra_urls" rows="2"
                       spellcheck="false" placeholder="https://example.org/api/interpreter"><?= e($overpassExtra) ?></textarea>
             <div class="form-text mb-3">
-                Einer pro Zeile, werden nach diesen versucht:
+                Einer pro Zeile, werden nach <?= $overpassChHint !== null ? 'overpass.ch und ' : '' ?>diesen versucht:
                 <?php foreach ($overpassConfigured as $i => $url): ?><?= $i > 0 ? ', ' : '' ?><code><?= e(preg_replace('#^https://#', '', $url)) ?></code><?php endforeach; ?>.
                 Danach folgen Geoapify und Photon, deren Ergebnisse zusammengeführt werden.
             </div>
