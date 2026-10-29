@@ -33,10 +33,12 @@ class HttpClient
 
     private function request(string $method, string $url, ?string $body = null): string
     {
-        $headers = ['Accept: application/json'];
+        // No "Expect: 100-continue" – some outbound proxies stall on it.
+        $headers = ['Accept: application/json', 'Expect:'];
         if ($body !== null) {
             $headers[] = 'Content-Type: application/x-www-form-urlencoded';
         }
+        $ip = '';
 
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
@@ -56,9 +58,10 @@ class HttpClient
             }
             $response = curl_exec($ch);
             $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $ip = (string) curl_getinfo($ch, CURLINFO_PRIMARY_IP);
             $error = curl_error($ch);
             if (!is_string($response)) {
-                throw new OsmException('Verbindung fehlgeschlagen: ' . $error);
+                throw new OsmException('Verbindung fehlgeschlagen: ' . $error . ($ip !== '' ? " [IP $ip]" : ''));
             }
         } else {
             $context = stream_context_create(['http' => [
@@ -88,8 +91,20 @@ class HttpClient
             throw new OsmException('Der Dienst ist gerade überlastet (429). Bitte gleich nochmal versuchen.');
         }
         if ($status < 200 || $status >= 300) {
-            throw new OsmException("Der Dienst antwortet mit HTTP $status.");
+            // IP and the start of the error page tell whether the error came from the
+            // service itself or from a proxy in between (e.g. at the hosting provider).
+            $snippet = self::snippet($response);
+            throw new OsmException("Der Dienst antwortet mit HTTP $status."
+                . ($ip !== '' ? " [IP $ip]" : '')
+                . ($snippet !== '' ? " „{$snippet}“" : ''));
         }
         return $response;
+    }
+
+    private static function snippet(string $body): string
+    {
+        $text = (string) preg_replace(['#<(script|style)\b.*?</\1>#is', '/<[^>]*>/'], ' ', $body);
+        $text = trim((string) preg_replace('/\s+/', ' ', html_entity_decode($text)));
+        return mb_strlen($text) > 120 ? mb_substr($text, 0, 120) . '…' : $text;
     }
 }
