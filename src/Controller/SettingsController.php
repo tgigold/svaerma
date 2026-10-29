@@ -40,6 +40,8 @@ final class SettingsController extends Controller
             'tokens' => in_array('003_api_tokens', $migrator->applied(), true) ? $this->app->apiTokens()->all() : null,
             'newToken' => $this->takeNewToken(),
             'baseUrl' => rtrim((string) $this->app->config->get('base_url'), '/'),
+            'uploadLimit' => (string) ini_get('upload_max_filesize'),
+            'importReady' => in_array('004_venue_ref', $migrator->applied(), true),
             'version' => App::VERSION,
             'applied' => $migrator->applied(),
             'pending' => $migrator->pending(),

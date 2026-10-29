@@ -9,6 +9,7 @@ use App\Controller\CheckinController;
 use App\Controller\PlaceController;
 use App\Controller\SettingsController;
 use App\Controller\SetupController;
+use App\Controller\TransferController;
 use App\Http\Router;
 
 /*
@@ -43,6 +44,9 @@ return static function (Router $r): void {
     $r->get('/settings', [SettingsController::class, 'index'], ['ignore_migrations' => true]);
     $r->post('/settings', [SettingsController::class, 'save']);
     $r->post('/settings/tokens', [SettingsController::class, 'createToken']);
+    $r->post('/import/swarm', [TransferController::class, 'import']);
+    $r->get('/export.json', [TransferController::class, 'exportJson']);
+    $r->get('/export.geojson', [TransferController::class, 'exportGeoJson']);
     $r->post('/settings/tokens/{id:\d+}/revoke', [SettingsController::class, 'revokeToken']);
 
     $r->get('/admin', [AdminController::class, 'index'], ['ignore_migrations' => true]);
