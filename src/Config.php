@@ -31,11 +31,14 @@ final class Config
                 // Tried in order when the main endpoint fails (see wiki.openstreetmap.org/wiki/Overpass_API).
                 'overpass_fallback_urls' => ['https://overpass.private.coffee/api/interpreter'],
                 'photon_url' => 'https://photon.komoot.io/api/',
+                'photon_reverse_url' => 'https://photon.komoot.io/reverse',
                 'nominatim_url' => 'https://nominatim.openstreetmap.org/search',
                 'search_provider' => 'photon',
                 'tile_url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 'cache_ttl' => 86400,
-                'timeout' => 25,
+                'timeout' => 15,
+                // Per Overpass endpoint; kept short so the Photon fallback answers quickly.
+                'overpass_timeout' => 12,
             ],
         ];
     }

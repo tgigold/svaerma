@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', function () {
     getJson('/places/nearby?lat=' + position.lat + '&lon=' + position.lon + '&radius=' + r)
       .then(function (data) {
         renderPlaces(data.places, 'Keine Orte im Umkreis von ' + r + ' m gefunden. Erweitere den Umkreis, suche nach dem Namen oder lege einen eigenen Ort an.');
+        if (data.notice && data.places.length) showMessage(data.notice, 'info');
         widenBtn.classList.toggle('d-none', r >= maxRadius);
       })
       .catch(function (err) {

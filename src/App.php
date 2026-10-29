@@ -29,7 +29,7 @@ use PDO;
  */
 final class App
 {
-    public const VERSION = '0.2.1';
+    public const VERSION = '0.2.2';
     public const DEFAULT_RADIUS = 150;
 
     private ?PDO $pdo = null;
@@ -108,7 +108,7 @@ final class App
         return (int) ($this->settings()->get('nearby_radius') ?? self::DEFAULT_RADIUS);
     }
 
-    public function http(): HttpClient
+    public function http(?int $timeout = null): HttpClient
     {
         // Fair use: identify the app and give a contact address.
         $ua = sprintf(
@@ -117,13 +117,13 @@ final class App
             (string) $this->config->get('base_url'),
             (string) $this->config->get('contact_email'),
         );
-        return new HttpClient($ua, (int) $this->config->get('osm.timeout'));
+        return new HttpClient($ua, $timeout ?? (int) $this->config->get('osm.timeout'));
     }
 
     public function overpass(): Overpass
     {
         return new Overpass(
-            $this->http(),
+            $this->http((int) $this->config->get('osm.overpass_timeout')),
             new CacheRepository($this->pdo()),
             $this->overpassEndpoints(),
             (int) $this->config->get('osm.cache_ttl'),
@@ -138,16 +138,18 @@ final class App
         return array_values(array_unique(array_filter(array_map('strval', $urls))));
     }
 
-    public function placeSearch(): PlaceSearch
+    /** @param int|null $cacheTtl 0 effectively bypasses the cache (diagnostics) */
+    public function placeSearch(?int $cacheTtl = null): PlaceSearch
     {
         return new PlaceSearch(
             $this->http(),
             new CacheRepository($this->pdo()),
             (string) $this->config->get('osm.search_provider'),
             (string) $this->config->get('osm.photon_url'),
+            (string) $this->config->get('osm.photon_reverse_url'),
             (string) $this->config->get('osm.nominatim_url'),
             new Throttle($this->dataDir() . '/nominatim.lock', 1.0),
-            (int) $this->config->get('osm.cache_ttl'),
+            $cacheTtl ?? (int) $this->config->get('osm.cache_ttl'),
         );
     }
 
