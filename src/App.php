@@ -11,9 +11,16 @@ use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
 use App\Http\Session;
+use App\Repository\CacheRepository;
+use App\Repository\CheckinRepository;
 use App\Repository\LoginAttemptRepository;
 use App\Repository\SettingsRepository;
 use App\Service\Auth;
+use App\Service\CheckinService;
+use App\Service\Osm\HttpClient;
+use App\Service\Osm\Overpass;
+use App\Service\Osm\PlaceSearch;
+use App\Service\Osm\Throttle;
 use PDO;
 
 /**
@@ -22,7 +29,8 @@ use PDO;
  */
 final class App
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.2.0';
+    public const DEFAULT_RADIUS = 150;
 
     private ?PDO $pdo = null;
     private ?Session $session = null;
@@ -84,6 +92,57 @@ final class App
         return new Migrator($this->pdo(), APP_ROOT . '/migrations', $this->backup());
     }
 
+    public function checkins(): CheckinRepository
+    {
+        return new CheckinRepository($this->pdo());
+    }
+
+    public function checkinService(): CheckinService
+    {
+        return new CheckinService($this->checkins(), (string) $this->config->get('timezone'));
+    }
+
+    /** Search radius for nearby places in metres (user setting). */
+    public function nearbyRadius(): int
+    {
+        return (int) ($this->settings()->get('nearby_radius') ?? self::DEFAULT_RADIUS);
+    }
+
+    public function http(): HttpClient
+    {
+        // Fair use: identify the app and give a contact address.
+        $ua = sprintf(
+            'CheckinLog/%s (+%s; %s)',
+            self::VERSION,
+            (string) $this->config->get('base_url'),
+            (string) $this->config->get('contact_email'),
+        );
+        return new HttpClient($ua, (int) $this->config->get('osm.timeout'));
+    }
+
+    public function overpass(): Overpass
+    {
+        return new Overpass(
+            $this->http(),
+            new CacheRepository($this->pdo()),
+            (string) $this->config->get('osm.overpass_url'),
+            (int) $this->config->get('osm.cache_ttl'),
+        );
+    }
+
+    public function placeSearch(): PlaceSearch
+    {
+        return new PlaceSearch(
+            $this->http(),
+            new CacheRepository($this->pdo()),
+            (string) $this->config->get('osm.search_provider'),
+            (string) $this->config->get('osm.photon_url'),
+            (string) $this->config->get('osm.nominatim_url'),
+            new Throttle($this->dataDir() . '/nominatim.lock', 1.0),
+            (int) $this->config->get('osm.cache_ttl'),
+        );
+    }
+
     // ---- Kernel ---------------------------------------------------------
 
     public function handle(Request $request): Response
@@ -132,13 +191,18 @@ final class App
 
         if (!$route->option('public') && !$route->option('setup')) {
             if (!$this->auth()->check()) {
+                if ($request->wantsJson()) {
+                    return Response::json(['error' => 'Nicht angemeldet.'], 401);
+                }
                 if ($request->method === 'GET') {
                     $session->set('intended', $request->path);
                 }
                 return Response::redirect('/login');
             }
             if (!$route->option('ignore_migrations') && $this->migrator()->pending() !== []) {
-                return Response::redirect('/admin');
+                return $request->wantsJson()
+                    ? Response::json(['error' => 'Datenbank-Migration ausstehend.'], 503)
+                    : Response::redirect('/admin');
             }
         }
 
