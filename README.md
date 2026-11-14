@@ -20,7 +20,7 @@ Live unter `https://checkin.gigold.me`.
 | **Server** | All-Inkl, `/www/htdocs/gigold/checkin_gigold_me`, `https://checkin.gigold.me`, PHP 8.5 |
 | **Deployment** | rsync über SSH, `main` ist live (siehe [Deployment und Updates](#deployment-und-updates)) |
 | **Cronjobs** | keine |
-| **Coding-Regeln** | Version 1.1.0, dazu `G-18` (noch nicht veröffentlicht) |
+| **Coding-Regeln** | Version 1.2.0 |
 
 ### Abweichungen von den Coding-Regeln
 
